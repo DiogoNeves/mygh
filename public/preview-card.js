@@ -137,11 +137,26 @@ export function drawPreviewImage(ctx, state, theme, themeName, chips) {
   ctx.font = "700 68px Georgia, Times New Roman, serif";
   const titleY = 238;
   const titleLineHeight = 70;
-  const titleLines = Math.max(1, wrapText(ctx, state.title, 96, titleY, 900, titleLineHeight, 2));
+  const descriptionLineHeight = 38;
+  const titleLineCount = measureWrappedLineCount(ctx, state.title, 900, 2);
+  const descriptionY = titleY + titleLineCount * titleLineHeight + 5;
+  const descriptionMaxLines = Math.max(
+    2,
+    Math.min(5, Math.floor((465 - descriptionY) / descriptionLineHeight) + 1),
+  );
+  wrapText(ctx, state.title, 96, titleY, 900, titleLineHeight, 2);
 
   ctx.fillStyle = theme.muted;
   ctx.font = "400 29px Avenir Next, Trebuchet MS, sans-serif";
-  wrapText(ctx, state.description, 96, titleY + titleLines * titleLineHeight + 5, 900, 38, 2);
+  wrapText(
+    ctx,
+    state.description,
+    96,
+    descriptionY,
+    900,
+    descriptionLineHeight,
+    descriptionMaxLines,
+  );
 
   let chipX = 96;
   if (chips.has("language")) {
@@ -335,7 +350,7 @@ function ellipsizeText(ctx, text, maxWidth) {
 }
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
-  const words = text.trim().split(/\s+/).filter(Boolean);
+  const words = wordsForText(text);
   if (!words.length || maxLines < 1) {
     return 0;
   }
@@ -373,6 +388,35 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
   }
 
   return lines.length;
+}
+
+function measureWrappedLineCount(ctx, text, maxWidth, maxLines) {
+  const words = wordsForText(text);
+  if (!words.length || maxLines < 1) {
+    return 0;
+  }
+
+  let lines = 0;
+  let line = "";
+
+  for (const word of words) {
+    const testLine = line ? `${line} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      lines += 1;
+      if (lines >= maxLines) {
+        return maxLines;
+      }
+      line = word;
+    } else {
+      line = testLine;
+    }
+  }
+
+  return Math.min(maxLines, lines + (line ? 1 : 0));
+}
+
+function wordsForText(text) {
+  return text.trim().split(/\s+/).filter(Boolean);
 }
 
 function roundRect(ctx, x, y, width, height, radius) {
