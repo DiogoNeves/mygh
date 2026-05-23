@@ -11,24 +11,22 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
 
   // Create this with:
   // npx wrangler kv namespace create MYGH_LINKS
   //
-  // Then uncomment and paste the returned ID:
+  // Keep real namespace IDs in an ignored local config, such as
+  // wrangler.local.jsonc, rather than committing them here.
   //
-  // ,"kv_namespaces": [
+  // "kv_namespaces": [
   //   {
   //     "binding": "MYGH_LINKS",
   //     "id": "paste-cloudflare-kv-namespace-id-here"
   //   }
-  // ]
-  //
-  // After mygh.site is active in Cloudflare, add custom domains or routes:
-  //
-  // ,"routes": [
-  //   { "pattern": "mygh.site", "custom_domain": true },
-  //   { "pattern": "www.mygh.site", "custom_domain": true }
-  // ]
+  // ],
+  "routes": [
+    { "pattern": "mygh.site", "custom_domain": true },
+    { "pattern": "www.mygh.site", "custom_domain": true }
+  ]
 }

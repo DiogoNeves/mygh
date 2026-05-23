@@ -18,39 +18,44 @@ const previewTitle = document.querySelector("#preview-title");
 const previewDescription = document.querySelector("#preview-description");
 const previewStars = document.querySelector("#preview-stars");
 const previewExtra = document.querySelector("#preview-extra");
+const previewAvatar = document.querySelector("#preview-avatar");
+const previewMonogram = document.querySelector("#preview-monogram");
 
 let currentMetadata = null;
 
 const themes = {
   paper: {
-    background: "#f7f8fb",
+    background: "#fbfdfb",
     panel: "#ffffff",
-    border: "#e3e7ef",
-    ink: "#0b1220",
-    muted: "#687083",
-    accent: "#2458ff",
-    chip: "#f2f5fb",
-    mark: "#0b1220",
+    border: "#cbd5d0",
+    ink: "#141616",
+    muted: "#626b68",
+    accent: "#f05a3f",
+    secondary: "#dfff55",
+    chip: "#f2f6f3",
+    mark: "#0d1010",
   },
   mint: {
-    background: "#edf8f1",
+    background: "#e6f7ed",
     panel: "#fbfffd",
-    border: "#c8e6d4",
-    ink: "#10251a",
-    muted: "#536b5d",
-    accent: "#19a66c",
-    chip: "#e1f5e9",
-    mark: "#103b28",
+    border: "#a8cdbb",
+    ink: "#10241d",
+    muted: "#4e6b5e",
+    accent: "#116a50",
+    secondary: "#dfff55",
+    chip: "#d7f0e3",
+    mark: "#10241d",
   },
   dusk: {
-    background: "#0a1019",
-    panel: "#101722",
-    border: "#263449",
-    ink: "#ffffff",
-    muted: "#aab7c8",
-    accent: "#74a2ff",
-    chip: "#1a2433",
-    mark: "#030711",
+    background: "#111817",
+    panel: "#151f1d",
+    border: "#45615f",
+    ink: "#f6faf8",
+    muted: "#a8bab5",
+    accent: "#f05a3f",
+    secondary: "#17a7b6",
+    chip: "#20302e",
+    mark: "#060909",
   },
 };
 
@@ -151,6 +156,20 @@ function renderPreview() {
     currentMetadata.type === "release"
       ? currentMetadata.releaseTag || "Release"
       : `${formatNumber(currentMetadata.forks)} forks`;
+
+  const monogram = (currentMetadata.repo || currentMetadata.owner || "G")
+    .slice(0, 1)
+    .toUpperCase();
+  previewMonogram.textContent = monogram;
+  if (currentMetadata.ownerAvatarUrl) {
+    previewAvatar.src = currentMetadata.ownerAvatarUrl;
+    previewAvatar.hidden = false;
+    previewMonogram.hidden = true;
+  } else {
+    previewAvatar.removeAttribute("src");
+    previewAvatar.hidden = true;
+    previewMonogram.hidden = false;
+  }
 }
 
 function selectedTheme() {
@@ -167,63 +186,74 @@ function renderCanvas() {
 
   ctx.fillStyle = theme.background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawGrid(ctx, theme, canvas.width, canvas.height);
 
   ctx.save();
-  ctx.globalAlpha = selectedTheme() === "dusk" ? 0.24 : 0.16;
+  ctx.globalAlpha = selectedTheme() === "dusk" ? 0.34 : 0.28;
   ctx.fillStyle = theme.accent;
   ctx.beginPath();
-  ctx.arc(1020, 96, 220, 0, Math.PI * 2);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(400, 0);
+  ctx.lineTo(265, canvas.height);
+  ctx.lineTo(0, canvas.height);
+  ctx.closePath();
   ctx.fill();
   ctx.restore();
 
   ctx.fillStyle = theme.panel;
-  roundRect(ctx, 56, 50, 1088, 530, 28);
+  roundRect(ctx, 56, 50, 1088, 530, 16);
   ctx.fill();
   ctx.strokeStyle = theme.border;
   ctx.lineWidth = 2;
   ctx.stroke();
 
   ctx.fillStyle = theme.mark;
-  roundRect(ctx, 96, 91, 52, 52, 14);
+  roundRect(ctx, 96, 91, 56, 56, 16);
+  ctx.fill();
+  ctx.fillStyle = theme.secondary;
+  roundRect(ctx, 105, 100, 56, 56, 16);
+  ctx.fill();
+  ctx.fillStyle = theme.mark;
+  roundRect(ctx, 96, 91, 56, 56, 16);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
-  ctx.font = "900 17px ui-sans-serif, system-ui, sans-serif";
-  ctx.fillText("GH", 109, 124);
+  ctx.font = "900 17px Avenir Next, Trebuchet MS, sans-serif";
+  ctx.fillText("GH", 111, 126);
 
   ctx.fillStyle = theme.ink;
-  ctx.font = "800 31px ui-sans-serif, system-ui, sans-serif";
-  ctx.fillText(metadata.fullName, 166, 124);
+  ctx.font = "800 30px SFMono-Regular, Cascadia Mono, monospace";
+  ctx.fillText(clipText(ctx, metadata.fullName, 620), 174, 127);
 
   ctx.fillStyle = theme.accent;
-  ctx.font = "850 25px ui-sans-serif, system-ui, sans-serif";
-  ctx.fillText("mygh", 1048, 124);
+  ctx.font = "700 32px Georgia, Times New Roman, serif";
+  ctx.fillText("mygh", 1042, 128);
 
   ctx.fillStyle = theme.ink;
-  ctx.font = "850 62px ui-sans-serif, system-ui, sans-serif";
-  wrapText(ctx, titleInput.value || metadata.title, 96, 250, 690, 70, 2);
+  ctx.font = "700 68px Georgia, Times New Roman, serif";
+  wrapText(ctx, titleInput.value || metadata.title, 96, 258, 690, 75, 2);
 
   ctx.fillStyle = theme.muted;
-  ctx.font = "400 30px ui-sans-serif, system-ui, sans-serif";
+  ctx.font = "400 29px Avenir Next, Trebuchet MS, sans-serif";
   wrapText(
     ctx,
     descriptionInput.value || metadata.description,
     96,
-    402,
+    416,
     720,
     42,
     2,
   );
 
   const logoLetter = (metadata.repo || metadata.owner || "G").slice(0, 1).toUpperCase();
-  ctx.fillStyle = selectedTheme() === "dusk" ? "#060a11" : "#f0f3f8";
-  roundRect(ctx, 868, 230, 190, 190, 24);
+  ctx.fillStyle = selectedTheme() === "dusk" ? "#060909" : "#f2f6f3";
+  roundRect(ctx, 868, 226, 202, 202, 16);
   ctx.fill();
   ctx.strokeStyle = theme.border;
   ctx.stroke();
   ctx.fillStyle = theme.ink;
-  ctx.font = "400 124px ui-sans-serif, system-ui, sans-serif";
+  ctx.font = "700 126px Georgia, Times New Roman, serif";
   ctx.textAlign = "center";
-  ctx.fillText(logoLetter, 963, 368);
+  ctx.fillText(logoLetter, 969, 370);
   ctx.textAlign = "start";
 
   const extra =
@@ -238,16 +268,48 @@ function renderCanvas() {
 }
 
 function drawChip(ctx, text, x, y, theme) {
-  ctx.font = "800 23px ui-sans-serif, system-ui, sans-serif";
+  ctx.font = "800 23px SFMono-Regular, Cascadia Mono, monospace";
   const clipped = text.length > 24 ? `${text.slice(0, 21)}...` : text;
   const width = Math.min(ctx.measureText(clipped).width + 34, 320);
   ctx.fillStyle = theme.chip;
-  roundRect(ctx, x, y, width, 46, 12);
+  roundRect(ctx, x, y, width, 46, 10);
   ctx.fill();
   ctx.strokeStyle = theme.border;
   ctx.stroke();
   ctx.fillStyle = theme.muted;
   ctx.fillText(clipped, x + 17, y + 30);
+}
+
+function drawGrid(ctx, theme, width, height) {
+  ctx.save();
+  ctx.globalAlpha = selectedTheme() === "dusk" ? 0.18 : 0.13;
+  ctx.strokeStyle = theme.ink;
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= width; x += 48) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= height; y += 48) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function clipText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) {
+    return text;
+  }
+
+  let clipped = text;
+  while (clipped.length > 1 && ctx.measureText(`${clipped}...`).width > maxWidth) {
+    clipped = clipped.slice(0, -1);
+  }
+  return `${clipped}...`;
 }
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {

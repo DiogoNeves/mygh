@@ -9,7 +9,7 @@
   </head>
   <body>
     <main class="page-shell">
-      <section class="phone" aria-labelledby="app-title">
+      <section class="studio" aria-labelledby="app-title">
         <header class="app-header">
           <a class="brand" href="/" aria-label="mygh home">
             <span class="brand-mark" aria-hidden="true">
@@ -21,138 +21,139 @@
             </span>
             <span class="brand-name">my<span>gh</span></span>
           </a>
-          <button class="icon-button" type="button" aria-label="Menu">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M4 7h16M4 12h16M4 17h16"></path>
-            </svg>
-          </button>
+          <p class="header-kicker">GitHub link studio</p>
         </header>
 
-        <section class="intro">
-          <h1 id="app-title">Create a new link</h1>
-          <p>Paste a GitHub repo or release URL and make it look good everywhere.</p>
-        </section>
+        <div class="studio-grid">
+          <section class="control-panel" aria-label="Build link">
+            <section class="intro">
+              <p class="eyebrow">Open graph workshop</p>
+              <h1 id="app-title">Shape a GitHub link into a card worth opening.</h1>
+            </section>
 
-        <form class="composer" id="inspect-form">
-          <label class="sr-only" for="github-url">GitHub URL</label>
-          <div class="input-card">
-            <span class="github-dot" aria-hidden="true">GH</span>
-            <input
-              id="github-url"
-              name="github-url"
-              type="url"
-              placeholder="https://github.com/owner/repo/releases/tag/v1.2.3"
-              autocomplete="off"
-              required
-            >
-          </div>
-          <button class="primary-button" type="submit">
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <path d="m13 2-7 11h5l-1 9 8-12h-5l0-8Z"></path>
-            </svg>
-            Preview link
-          </button>
-        </form>
+            <form class="composer" id="inspect-form">
+              <label for="github-url">GitHub URL</label>
+              <div class="input-card">
+                <span class="github-dot" aria-hidden="true">GH</span>
+                <input
+                  id="github-url"
+                  name="github-url"
+                  type="url"
+                  placeholder="https://github.com/owner/repo/releases/tag/v1.2.3"
+                  autocomplete="off"
+                  required
+                >
+              </div>
+              <button class="primary-button" type="submit">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="m13 2-7 11h5l-1 9 8-12h-5l0-8Z"></path>
+                </svg>
+                Preview link
+              </button>
+            </form>
 
-        <section class="preview-section" aria-label="Preview">
-          <div class="section-heading">
-            <h2>Preview</h2>
-            <span id="preview-kind">GitHub</span>
-          </div>
+            <section class="customizer" aria-label="Customize preview">
+              <label for="card-title">Title</label>
+              <input id="card-title" maxlength="90" placeholder="Paste a GitHub link first">
 
-          <article class="preview-card theme-paper" id="preview-card">
-            <div class="preview-head">
-              <span class="repo-mark" aria-hidden="true">GH</span>
-              <span id="preview-repo">owner/repo</span>
+              <label for="card-description">Description</label>
+              <textarea id="card-description" maxlength="220" rows="4" placeholder="Release notes or repository summary"></textarea>
+
+              <fieldset class="appearance">
+                <legend>Appearance</legend>
+                <label class="theme-choice">
+                  <input type="radio" name="theme" value="paper" checked>
+                  <span>
+                    <i class="theme-thumb thumb-paper" aria-hidden="true"></i>
+                    Paper
+                  </span>
+                </label>
+                <label class="theme-choice">
+                  <input type="radio" name="theme" value="mint">
+                  <span>
+                    <i class="theme-thumb thumb-mint" aria-hidden="true"></i>
+                    Mint
+                  </span>
+                </label>
+                <label class="theme-choice">
+                  <input type="radio" name="theme" value="dusk">
+                  <span>
+                    <i class="theme-thumb thumb-dusk" aria-hidden="true"></i>
+                    Dusk
+                  </span>
+                </label>
+              </fieldset>
+            </section>
+          </section>
+
+          <section class="preview-section" aria-label="Preview">
+            <div class="section-heading">
+              <h2>Preview</h2>
+              <span id="preview-kind">GitHub</span>
             </div>
-            <h3 id="preview-title">Paste a GitHub repo or release URL</h3>
-            <p id="preview-description">mygh creates an unfurl-friendly link that redirects back to GitHub.</p>
-            <div class="preview-stats">
-              <span id="preview-language">Repository</span>
-              <span id="preview-stars">0 stars</span>
-              <span id="preview-extra">Ready</span>
-            </div>
-          </article>
-        </section>
 
-        <section class="customizer" aria-label="Customize preview">
-          <label for="card-title">Title</label>
-          <input id="card-title" maxlength="90" placeholder="Paste a GitHub link first">
+            <article class="preview-card theme-paper" id="preview-card">
+              <div class="preview-glow" aria-hidden="true"></div>
+              <div class="preview-head">
+                <span class="repo-mark" aria-hidden="true">GH</span>
+                <span id="preview-repo">owner/repo</span>
+              </div>
+              <div class="preview-copy">
+                <h3 id="preview-title">Paste a GitHub repo or release URL</h3>
+                <p id="preview-description">mygh creates an unfurl-friendly link that redirects back to GitHub.</p>
+              </div>
+              <div class="preview-asset" aria-hidden="true">
+                <img id="preview-avatar" alt="" hidden>
+                <span id="preview-monogram">G</span>
+              </div>
+              <div class="preview-stats">
+                <span id="preview-language">Repository</span>
+                <span id="preview-stars">0 stars</span>
+                <span id="preview-extra">Ready</span>
+              </div>
+            </article>
+          </section>
 
-          <label for="card-description">Description</label>
-          <textarea id="card-description" maxlength="220" rows="3" placeholder="Release notes or repository summary"></textarea>
+          <aside class="publish-panel" aria-label="Publish link">
+            <button class="save-button" id="create-link" type="button" disabled>Save share link</button>
 
-          <fieldset class="appearance">
-            <legend>Appearance</legend>
-            <label class="theme-choice">
-              <input type="radio" name="theme" value="paper" checked>
-              <span>
-                <i class="theme-thumb thumb-paper" aria-hidden="true"></i>
-                Default
-              </span>
-            </label>
-            <label class="theme-choice">
-              <input type="radio" name="theme" value="mint">
-              <span>
-                <i class="theme-thumb thumb-mint" aria-hidden="true"></i>
-                Light
-              </span>
-            </label>
-            <label class="theme-choice">
-              <input type="radio" name="theme" value="dusk">
-              <span>
-                <i class="theme-thumb thumb-dusk" aria-hidden="true"></i>
-                Dark
-              </span>
-            </label>
-          </fieldset>
+            <section class="result" id="result" hidden>
+              <div class="ready-row">
+                <span class="ready-check" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="m6 12 4 4 8-9"></path>
+                  </svg>
+                </span>
+                <div>
+                  <strong>Your link is ready!</strong>
+                  <p>Share your short link anywhere.</p>
+                </div>
+              </div>
 
-          <button class="save-button" id="create-link" type="button" disabled>Save share link</button>
-        </section>
+              <label class="sr-only" for="share-url">Share URL</label>
+              <div class="share-box">
+                <input id="share-url" readonly>
+                <button id="copy-link" type="button" aria-label="Copy link">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M8 8h10v10H8z"></path>
+                    <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
 
-        <section class="result" id="result" hidden>
-          <div class="ready-row">
-            <span class="ready-check" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="m6 12 4 4 8-9"></path>
-              </svg>
-            </span>
-            <div>
-              <strong>Your link is ready!</strong>
-              <p>Share your short link anywhere.</p>
-            </div>
-          </div>
+              <div class="action-list">
+                <a id="preview-link" href="#" target="_blank" rel="noreferrer">
+                  <span>Open preview page</span>
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M7 17 17 7M9 7h8v8"></path>
+                  </svg>
+                </a>
+              </div>
+            </section>
 
-          <label class="sr-only" for="share-url">Share URL</label>
-          <div class="share-box">
-            <input id="share-url" readonly>
-            <button id="copy-link" type="button" aria-label="Copy link">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M8 8h10v10H8z"></path>
-                <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            </button>
-          </div>
-
-          <div class="action-list">
-            <a id="preview-link" href="#" target="_blank" rel="noreferrer">
-              <span>Open preview page</span>
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M7 17 17 7M9 7h8v8"></path>
-              </svg>
-            </a>
-          </div>
-        </section>
-
-        <p class="status" id="status" role="status"></p>
-
-        <footer class="footer">
-          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-            <path d="M9.2 14.8a3.2 3.2 0 0 1 0-4.5l1.1-1.1 1.4 1.4-1.1 1.1a1.2 1.2 0 0 0 1.7 1.7l1.1-1.1 1.4 1.4-1.1 1.1a3.2 3.2 0 0 1-4.5 0Z"></path>
-            <path d="M13.7 17.5 10 13.8l1.4-1.4 3.7 3.7a1.2 1.2 0 0 0 1.7-1.7l-1.1-1.1 1.4-1.4 1.1 1.1a3.2 3.2 0 0 1-4.5 4.5Z"></path>
-          </svg>
-          Served by <strong>mygh</strong>
-        </footer>
+            <p class="status" id="status" role="status"></p>
+          </aside>
+        </div>
       </section>
     </main>
 

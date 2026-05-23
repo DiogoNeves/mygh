@@ -42,6 +42,9 @@ node_modules/
 jspm_packages/
 .wrangler/
 
+# macOS
+.DS_Store
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
@@ -71,6 +74,15 @@ web_modules/
 .env
 .env.*
 !.env.example
+
+# Local Cloudflare/Wrangler secrets and IDs
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+wrangler.local.jsonc
+
+# Local browser automation state
+.playwright-mcp/
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
