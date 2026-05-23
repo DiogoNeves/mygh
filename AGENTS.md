@@ -61,6 +61,7 @@ Do not deploy unless the user explicitly asks.
 - Prefer platform primitives: `Request`, `Response`, `URL`, `Headers`, `fetch`, `crypto`, `KVNamespace`, and typed `Env` bindings.
 - Keep `strict` TypeScript clean. Run `npm run check` after TypeScript changes.
 - Preserve the current small-app shape. Do not add a framework, bundler, database, auth system, queue, or build step unless the user asks or the need is clear.
+- Treat KV records and any future persisted data as production data. Changes to stored schemas, key names, slugs, image records, or link records must either be backward compatible with existing data or include a zero-downtime migration path where old and new data can be read safely during rollout.
 - Keep route handling explicit and easy to scan in `src/index.ts`.
 - Return JSON API errors through the existing `HttpError`/`errorResponse` pattern.
 - Validate external input before using it. GitHub URL parsing, slug handling, image data URLs, and HTML escaping are security-sensitive paths.
