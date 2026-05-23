@@ -3,6 +3,7 @@
 - GitHub: https://github.com/DiogoNeves/mygh
 - Local path: /Users/diogoneves/Projects/mygh
 - Production domain: https://mygh.site
+- See how it works at: https://mygh.site
 - Platform: Cloudflare Workers + KV
 
 ## What it does
