@@ -60,6 +60,17 @@ function installGithubMock(t, responses) {
   return calls;
 }
 
+function installUnexpectedGithubFetch(t) {
+  globalThis.fetch = async (input) => {
+    const url = typeof input === "string" ? input : input.url;
+    throw new Error(`GitHub should not be fetched for invalid input: ${url}`);
+  };
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+}
+
 function jsonRequest(url, body) {
   return new Request(url, {
     method: "POST",
@@ -192,30 +203,30 @@ function linkRecord(overrides = {}) {
 }
 
 test("rejects non-GitHub inspect URLs before fetching external data", async (t) => {
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-  });
-  globalThis.fetch = async () => {
-    throw new Error("GitHub should not be fetched for invalid input.");
-  };
+  installUnexpectedGithubFetch(t);
 
-  const response = await worker.fetch(
-    new Request("https://mygh.test/api/inspect?url=https%3A%2F%2Fexample.com%2Foctocat%2FHello-World"),
-    {},
-  );
-  const body = await response.json();
+  const badUrls = [
+    "https://example.com/octocat/Hello-World",
+    "https://github.com.evil.test/octocat/Hello-World",
+    "https://evil.test/github.com/octocat/Hello-World",
+    "https://github.com@evil.test/octocat/Hello-World",
+    "https://raw.githubusercontent.com/octocat/Hello-World/main/README.md",
+  ];
 
-  assert.equal(response.status, 400);
-  assert.equal(body.error, "Only github.com URLs are supported.");
+  for (const badUrl of badUrls) {
+    const response = await worker.fetch(
+      new Request(`https://mygh.test/api/inspect?url=${encodeURIComponent(badUrl)}`),
+      {},
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error, "Only github.com URLs are supported.");
+  }
 });
 
 test("rejects non-http GitHub inspect URLs before fetching external data", async (t) => {
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-  });
-  globalThis.fetch = async () => {
-    throw new Error("GitHub should not be fetched for invalid input.");
-  };
+  installUnexpectedGithubFetch(t);
 
   const response = await worker.fetch(
     new Request("https://mygh.test/api/inspect?url=ssh%3A%2F%2Fgithub.com%2Foctocat%2FHello-World"),
@@ -247,12 +258,7 @@ test("reports missing GitHub repositories as not found", async (t) => {
 });
 
 test("rejects non-GitHub create URLs before requiring KV or fetching", async (t) => {
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-  });
-  globalThis.fetch = async () => {
-    throw new Error("GitHub should not be fetched for invalid input.");
-  };
+  installUnexpectedGithubFetch(t);
 
   const response = await worker.fetch(
     jsonRequest("https://mygh.test/api/links", {
@@ -474,13 +480,8 @@ test("does not write KV data when GitHub returns not found during link creation"
   assert.equal(kv.values.size, 0);
 });
 
-test("rejects malformed PNG data without writing KV data", async (t) => {
-  installGithubMock(t, [
-    {
-      url: "https://api.github.com/repos/octocat/Hello-World",
-      body: repoPayload(),
-    },
-  ]);
+test("rejects malformed PNG data before fetching GitHub or writing KV data", async (t) => {
+  installUnexpectedGithubFetch(t);
   const kv = new MemoryKv();
 
   const response = await worker.fetch(
@@ -542,30 +543,39 @@ test("redirects human share visits but renders escaped Open Graph HTML for crawl
   assert.match(html, /Social media preview/);
 });
 
-test("refuses stored share redirects to non-GitHub targets", async () => {
-  const kv = new MemoryKv();
-  kv.values.set(
-    "link:badtarget",
-    JSON.stringify(
-      linkRecord({
-        slug: "badtarget",
-        sharePath: "/s/badtarget",
-        githubUrl: "https://example.com/phishing",
+test("refuses stored share redirects to unsafe targets", async () => {
+  const unsafeTargets = [
+    "https://example.com/phishing",
+    "http://github.com/octocat/Hello-World",
+    "javascript:alert(1)",
+    "https://github.com",
+  ];
+
+  for (const githubUrl of unsafeTargets) {
+    const kv = new MemoryKv();
+    kv.values.set(
+      "link:badtarget",
+      JSON.stringify(
+        linkRecord({
+          slug: "badtarget",
+          sharePath: "/s/badtarget",
+          githubUrl,
+        }),
+      ),
+    );
+
+    const response = await worker.fetch(
+      new Request("https://mygh.test/s/badtarget", {
+        headers: { "user-agent": "Mozilla/5.0" },
       }),
-    ),
-  );
+      { MYGH_LINKS: kv },
+    );
+    const body = await response.json();
 
-  const response = await worker.fetch(
-    new Request("https://mygh.test/s/badtarget", {
-      headers: { "user-agent": "Mozilla/5.0" },
-    }),
-    { MYGH_LINKS: kv },
-  );
-  const body = await response.json();
-
-  assert.equal(response.status, 500);
-  assert.equal(response.headers.get("location"), null);
-  assert.equal(body.error, "Stored share link target is invalid.");
+    assert.equal(response.status, 500);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(body.error, "Stored share link target is invalid.");
+  }
 });
 
 test("renders dev share preview locally without KV or saved image", async () => {

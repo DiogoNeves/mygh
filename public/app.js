@@ -317,7 +317,6 @@ function previewState() {
     description,
     badge: badgeFor(type),
     extra: extraLabelFor(type, metadata, currentMetadata),
-    kindLabel: typeLabel,
     language: firstChipFor(type, metadata, currentMetadata),
     metricLabel: metricLabelFor(type, metadata, currentMetadata),
   };

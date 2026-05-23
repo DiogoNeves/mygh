@@ -152,6 +152,7 @@ async function handleCreateLink(request: Request, env: Env): Promise<Response> {
 
   const target = parseGithubUrl(githubUrl);
   const kv = requireKv(env);
+  const image = imageDataUrl ? decodePngDataUrl(imageDataUrl) : undefined;
   const metadata = await fetchGithubMetadata(target, env);
   const title = cleanOverride(readOptionalString(body.title), metadata.title, 90);
   const description = cleanOverride(
@@ -172,8 +173,7 @@ async function handleCreateLink(request: Request, env: Env): Promise<Response> {
     theme,
   };
 
-  if (imageDataUrl) {
-    const image = decodePngDataUrl(imageDataUrl);
+  if (image) {
     await kv.put(`image:${slug}`, image);
   }
 
