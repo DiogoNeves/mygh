@@ -16,7 +16,6 @@ const statusEl = document.querySelector("#status");
 const resultEl = document.querySelector("#result");
 const shareUrlInput = document.querySelector("#share-url");
 const copyButton = document.querySelector("#copy-link");
-const previewLink = document.querySelector("#preview-link");
 
 const previewCard = document.querySelector("#preview-card");
 const previewContext = previewCard.getContext("2d");
@@ -196,7 +195,6 @@ async function createShareLink() {
     }
 
     shareUrlInput.value = data.shareUrl;
-    previewLink.href = data.previewUrl;
     resultEl.hidden = false;
     setStatus("Share link created.");
   } catch (error) {

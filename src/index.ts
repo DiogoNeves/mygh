@@ -115,12 +115,12 @@ export default {
       }
 
       const imageMatch = url.pathname.match(/^\/img\/([a-zA-Z0-9_-]+)\.png$/);
-      if (request.method === "GET" && imageMatch) {
-        return await handleImage(imageMatch[1], env);
+      if ((request.method === "GET" || request.method === "HEAD") && imageMatch) {
+        return await handleImage(request, imageMatch[1], env);
       }
 
-      const shareMatch = url.pathname.match(/^\/s\/([a-zA-Z0-9_-]+)$/);
-      if (request.method === "GET" && shareMatch) {
+      const shareMatch = url.pathname.match(/^\/s\/([a-zA-Z0-9_-]+)\/?$/);
+      if ((request.method === "GET" || request.method === "HEAD") && shareMatch) {
         return await handleShare(request, env, shareMatch[1]);
       }
 
@@ -438,19 +438,26 @@ function renderDevSharePreviewSvg(): string {
 </svg>`;
 }
 
-async function handleImage(slug: string, env: Env): Promise<Response> {
+async function handleImage(
+  request: Request,
+  slug: string,
+  env: Env,
+): Promise<Response> {
   const kv = requireKv(env);
   const image = await kv.get(`image:${slug}`, "arrayBuffer");
   if (!image) {
     throw new HttpError(404, "Image not found.");
   }
 
-  return new Response(image, {
-    headers: {
-      "content-type": "image/png",
-      "cache-control": "public, max-age=31536000, immutable",
-      "x-content-type-options": "nosniff",
-    },
+  const headers = new Headers({
+    "content-type": "image/png",
+    "content-length": String(image.byteLength),
+    "cache-control": "public, max-age=31536000, immutable",
+    "x-content-type-options": "nosniff",
+  });
+
+  return new Response(request.method === "HEAD" ? null : image, {
+    headers,
   });
 }
 
@@ -476,7 +483,8 @@ async function handleShare(
 
   const baseUrl = getBaseUrl(request);
   const nonce = randomNonce();
-  return new Response(renderShareHtml(record, baseUrl, undefined, nonce), {
+  const html = renderShareHtml(record, baseUrl, undefined, nonce);
+  return new Response(request.method === "HEAD" ? null : html, {
     headers: shareHtmlHeaders("public, max-age=300", nonce),
   });
 }
@@ -876,15 +884,24 @@ async function githubFetch(url: string, env: Env): Promise<any> {
 function renderShareHtml(
   record: LinkRecord,
   baseUrl: string,
-  imageUrl = `${baseUrl}/img/${record.slug}.png`,
+  imageUrl?: string,
   nonce?: string,
 ): string {
+  const defaultImagePath = `/img/${record.slug}.png`;
+  const previewImageSrc = imageUrl ?? defaultImagePath;
+  const resolvedImageUrl = new URL(previewImageSrc, baseUrl).href;
+  const imageType = previewImageSrc.endsWith(".svg") ? "image/svg+xml" : "image/png";
   const shareUrl = `${baseUrl}${record.sharePath}`;
   const typeLabel = githubTypeLabel(record.type);
   const escapedTitle = escapeHtml(record.title);
   const escapedDescription = escapeHtml(record.description);
   const escapedShareUrl = escapeHtml(shareUrl);
   const escapedSharePath = escapeHtml(record.sharePath);
+  const escapedImageUrl = escapeHtml(resolvedImageUrl);
+  const escapedPreviewImageSrc = escapeHtml(previewImageSrc);
+  const escapedImageAlt = escapeHtml(
+    `${record.title} ${typeLabel} social preview by mygh.`,
+  );
   const nonceAttribute = nonce ? ` nonce="${escapeHtml(nonce)}"` : "";
 
   return `<!doctype html>
@@ -901,15 +918,20 @@ function renderShareHtml(
     <meta property="og:url" content="${escapeHtml(shareUrl)}">
     <meta property="og:title" content="${escapedTitle}">
     <meta property="og:description" content="${escapedDescription}">
-    <meta property="og:image" content="${escapeHtml(imageUrl)}">
+    <meta property="og:image" content="${escapedImageUrl}">
+    <meta property="og:image:url" content="${escapedImageUrl}">
+    <meta property="og:image:secure_url" content="${escapedImageUrl}">
+    <meta property="og:image:type" content="${escapeHtml(imageType)}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="${escapedImageAlt}">
     <meta property="og:site_name" content="mygh">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${escapedTitle}">
     <meta name="twitter:description" content="${escapedDescription}">
-    <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
+    <meta name="twitter:image" content="${escapedImageUrl}">
+    <meta name="twitter:image:alt" content="${escapedImageAlt}">
 
 	    <style${nonceAttribute}>
 	      :root {
@@ -1198,7 +1220,7 @@ function renderShareHtml(
 	      </div>
 	      <div class="preview-block">
 	        <p class="preview-label">Social media preview</p>
-	        <img src="${escapeHtml(imageUrl)}" alt="${escapedTitle}">
+	        <img src="${escapedPreviewImageSrc}" alt="${escapedTitle}">
 	      </div>
 	      <div class="actions">
 	        <a href="${escapeHtml(record.githubUrl)}">
@@ -1692,6 +1714,10 @@ function readOptionalString(value: unknown): string | undefined {
 
 function getBaseUrl(request: Request): string {
   const url = new URL(request.url);
+  const hostHeader = request.headers.get("host");
+  if (hostHeader && isLocalHostname(hostHeaderHostname(hostHeader))) {
+    return `${url.protocol}//${hostHeader.trim()}`;
+  }
   return url.origin;
 }
 

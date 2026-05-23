@@ -781,35 +781,6 @@ svg {
   width: 19px;
 }
 
-.action-list {
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.action-list a {
-  align-items: center;
-  color: var(--ink);
-  display: flex;
-  font-size: 14px;
-  font-weight: 800;
-  justify-content: space-between;
-  min-height: 54px;
-  padding: 0 16px;
-  text-decoration: none;
-}
-
-.action-list a:hover {
-  background: var(--surface-2);
-}
-
-.action-list svg {
-  color: var(--muted);
-  height: 18px;
-  width: 18px;
-}
-
 .status {
   color: var(--muted);
   font-size: 13px;

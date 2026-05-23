@@ -519,6 +519,18 @@ test("redirects human share visits but renders escaped Open Graph HTML for crawl
   assert.equal(humanResponse.status, 302);
   assert.equal(humanResponse.headers.get("location"), "https://github.com/octocat/Hello-World");
 
+  const trailingSlashHumanResponse = await worker.fetch(
+    new Request("https://mygh.test/s/share123/", {
+      headers: { "user-agent": "Mozilla/5.0" },
+    }),
+    { MYGH_LINKS: kv },
+  );
+  assert.equal(trailingSlashHumanResponse.status, 302);
+  assert.equal(
+    trailingSlashHumanResponse.headers.get("location"),
+    "https://github.com/octocat/Hello-World",
+  );
+
   const crawlerResponse = await worker.fetch(
     new Request("https://mygh.test/s/share123", {
       headers: { "user-agent": "Twitterbot/1.0" },
@@ -537,10 +549,88 @@ test("redirects human share visits but renders escaped Open Graph HTML for crawl
   assert.match(html, /A&amp;B &#039;desc&#039; &lt;tag&gt;/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
   assert.match(html, /<meta property="og:image" content="https:\/\/mygh\.test\/img\/share123\.png">/);
+  assert.match(html, /<meta property="og:image:url" content="https:\/\/mygh\.test\/img\/share123\.png">/);
+  assert.match(html, /<meta property="og:image:secure_url" content="https:\/\/mygh\.test\/img\/share123\.png">/);
+  assert.match(html, /<meta property="og:image:type" content="image\/png">/);
+  assert.match(html, /<meta property="og:image:width" content="1200">/);
+  assert.match(html, /<meta property="og:image:height" content="630">/);
+  assert.match(
+    html,
+    /<meta property="og:image:alt" content="Owned &quot;Repo&quot; &lt;script&gt;alert\(1\)&lt;\/script&gt; GitHub repository social preview by mygh\.">/,
+  );
+  assert.match(
+    html,
+    /<meta name="twitter:image:alt" content="Owned &quot;Repo&quot; &lt;script&gt;alert\(1\)&lt;\/script&gt; GitHub repository social preview by mygh\.">/,
+  );
   assert.match(html, /<label for="share-url">Share link<\/label>/);
   assert.match(html, /<input id="share-url" value="https:\/\/mygh\.test\/s\/share123" data-share-path="\/s\/share123" readonly>/);
   assert.match(html, /id="copy-share-link"/);
   assert.match(html, /Social media preview/);
+});
+
+test("supports HEAD checks for share pages and generated images", async () => {
+  const kv = new MemoryKv();
+  const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  kv.values.set("link:share123", JSON.stringify(linkRecord()));
+  kv.values.set("image:share123", bytes.buffer);
+
+  const humanResponse = await worker.fetch(
+    new Request("https://mygh.test/s/share123", {
+      method: "HEAD",
+      headers: { "user-agent": "Mozilla/5.0" },
+    }),
+    { MYGH_LINKS: kv },
+  );
+  assert.equal(humanResponse.status, 302);
+  assert.equal(humanResponse.headers.get("location"), "https://github.com/octocat/Hello-World");
+  assert.equal(await humanResponse.text(), "");
+
+  const crawlerResponse = await worker.fetch(
+    new Request("https://mygh.test/s/share123", {
+      method: "HEAD",
+      headers: { "user-agent": "Twitterbot/1.0" },
+    }),
+    { MYGH_LINKS: kv },
+  );
+  assert.equal(crawlerResponse.status, 200);
+  assert.equal(crawlerResponse.headers.get("content-type"), "text/html; charset=utf-8");
+  assert.equal(crawlerResponse.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(await crawlerResponse.text(), "");
+
+  const imageResponse = await worker.fetch(
+    new Request("https://mygh.test/img/share123.png", {
+      method: "HEAD",
+    }),
+    { MYGH_LINKS: kv },
+  );
+  assert.equal(imageResponse.status, 200);
+  assert.equal(imageResponse.headers.get("content-type"), "image/png");
+  assert.equal(imageResponse.headers.get("content-length"), String(bytes.byteLength));
+  assert.equal(imageResponse.headers.get("cache-control"), "public, max-age=31536000, immutable");
+  assert.equal(imageResponse.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(await imageResponse.text(), "");
+});
+
+test("uses the local host header for generated preview URLs during local development", async () => {
+  const kv = new MemoryKv();
+  kv.values.set("link:share123", JSON.stringify(linkRecord()));
+
+  const response = await worker.fetch(
+    new Request("http://mygh.site/s/share123", {
+      headers: {
+        host: "localhost:8787",
+        "user-agent": "Twitterbot/1.0",
+      },
+    }),
+    { MYGH_LINKS: kv },
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(html, /<meta property="og:url" content="http:\/\/localhost:8787\/s\/share123">/);
+  assert.match(html, /<meta property="og:image" content="http:\/\/localhost:8787\/img\/share123\.png">/);
+  assert.match(html, /<input id="share-url" value="http:\/\/localhost:8787\/s\/share123" data-share-path="\/s\/share123" readonly>/);
+  assert.match(html, /<img src="\/img\/share123\.png" alt="octocat\/Hello-World">/);
 });
 
 test("refuses stored share redirects to unsafe targets", async () => {
@@ -591,7 +681,9 @@ test("renders dev share preview locally without KV or saved image", async () => 
   assert.match(response.headers.get("content-security-policy"), /default-src 'none'/);
   assert.match(html, /DiogoNeves\/mygh/);
   assert.match(html, /Development preview of the saved mygh share page/);
-  assert.match(html, /<meta property="og:image" content="\/dev\/share-preview\.svg">/);
+  assert.match(html, /<meta property="og:image" content="http:\/\/localhost:8787\/dev\/share-preview\.svg">/);
+  assert.match(html, /<meta property="og:image:type" content="image\/svg\+xml">/);
+  assert.match(html, /<img src="\/dev\/share-preview\.svg" alt="DiogoNeves\/mygh">/);
   assert.match(html, /<input id="share-url" value="http:\/\/localhost:8787\/dev\/share-preview" data-share-path="\/dev\/share-preview" readonly>/);
 
   const imageResponse = await worker.fetch(
@@ -668,6 +760,7 @@ test("serves stored PNG images with long-lived cache headers", async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "image/png");
+  assert.equal(response.headers.get("content-length"), String(bytes.byteLength));
   assert.equal(response.headers.get("cache-control"), "public, max-age=31536000, immutable");
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.deepEqual([...body], [...bytes]);
