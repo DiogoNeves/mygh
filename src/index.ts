@@ -76,6 +76,11 @@ class HttpError extends Error {
   }
 }
 
+const MAX_GITHUB_URL_LENGTH = 2048;
+const MAX_JSON_BODY_CHARS = 3_000_000;
+const MAX_PNG_BYTES = 2 * 1024 * 1024;
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
@@ -140,13 +145,13 @@ async function handleInspect(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleCreateLink(request: Request, env: Env): Promise<Response> {
-  const kv = requireKv(env);
   const body = await readJson(request);
   const githubUrl = readRequiredString(body.githubUrl, "githubUrl");
   const imageDataUrl = readOptionalString(body.imageDataUrl);
   const theme = normalizeTheme(readOptionalString(body.theme));
 
   const target = parseGithubUrl(githubUrl);
+  const kv = requireKv(env);
   const metadata = await fetchGithubMetadata(target, env);
   const title = cleanOverride(readOptionalString(body.title), metadata.title, 90);
   const description = cleanOverride(
@@ -190,17 +195,16 @@ async function handleCreateLink(request: Request, env: Env): Promise<Response> {
 
 function handleDevSharePreview(request: Request): Response {
   const baseUrl = getBaseUrl(request);
+  const nonce = randomNonce();
   return new Response(
     renderShareHtml(
       devShareRecord(),
       baseUrl,
       "/dev/share-preview.svg",
+      nonce,
     ),
     {
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": "no-store",
-      },
+      headers: shareHtmlHeaders("no-store", nonce),
     },
   );
 }
@@ -210,6 +214,7 @@ function handleDevSharePreviewImage(): Response {
     headers: {
       "content-type": "image/svg+xml; charset=utf-8",
       "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
     },
   });
 }
@@ -271,6 +276,7 @@ async function handleImage(slug: string, env: Env): Promise<Response> {
     headers: {
       "content-type": "image/png",
       "cache-control": "public, max-age=31536000, immutable",
+      "x-content-type-options": "nosniff",
     },
   });
 }
@@ -281,7 +287,10 @@ async function handleShare(
   slug: string,
 ): Promise<Response> {
   const kv = requireKv(env);
-  const record = await kv.get<LinkRecord>(`link:${slug}`, "json");
+  const record = validateStoredLinkRecord(
+    await kv.get<LinkRecord>(`link:${slug}`, "json"),
+    slug,
+  );
   if (!record) {
     throw new HttpError(404, "Share link not found.");
   }
@@ -293,20 +302,26 @@ async function handleShare(
   }
 
   const baseUrl = getBaseUrl(request);
-  return new Response(renderShareHtml(record, baseUrl), {
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "public, max-age=300",
-    },
+  const nonce = randomNonce();
+  return new Response(renderShareHtml(record, baseUrl, undefined, nonce), {
+    headers: shareHtmlHeaders("public, max-age=300", nonce),
   });
 }
 
 function parseGithubUrl(rawUrl: string): GithubTarget {
+  if (rawUrl.length > MAX_GITHUB_URL_LENGTH) {
+    throw new HttpError(400, "GitHub URL is too long.");
+  }
+
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
   } catch {
     throw new HttpError(400, "Enter a valid GitHub URL.");
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new HttpError(400, "Enter an http or https GitHub URL.");
   }
 
   const host = parsed.hostname.toLowerCase();
@@ -330,7 +345,10 @@ function parseGithubUrl(rawUrl: string): GithubTarget {
       type: "release",
       owner,
       repo,
-      tag: decodePathPart(parts.slice(4).join("/")),
+      tag: cleanGithubPathValue(
+        decodePathPart(parts.slice(4).join("/")),
+        "release tag",
+      ),
       requestedUrl: rawUrl,
     };
   }
@@ -686,6 +704,7 @@ function renderShareHtml(
   record: LinkRecord,
   baseUrl: string,
   imageUrl = `${baseUrl}/img/${record.slug}.png`,
+  nonce?: string,
 ): string {
   const shareUrl = `${baseUrl}${record.sharePath}`;
   const typeLabel = githubTypeLabel(record.type);
@@ -693,6 +712,7 @@ function renderShareHtml(
   const escapedDescription = escapeHtml(record.description);
   const escapedShareUrl = escapeHtml(shareUrl);
   const escapedSharePath = escapeHtml(record.sharePath);
+  const nonceAttribute = nonce ? ` nonce="${escapeHtml(nonce)}"` : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -718,7 +738,7 @@ function renderShareHtml(
     <meta name="twitter:description" content="${escapedDescription}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
 
-	    <style>
+	    <style${nonceAttribute}>
 	      :root {
 	        --page: #e8edf0;
 	        --surface: #fbfdfb;
@@ -1015,7 +1035,7 @@ function renderShareHtml(
 	      </div>
 	      <div class="footer">Served by <strong>mygh</strong></div>
 	    </main>
-	    <script>
+	    <script${nonceAttribute}>
 	      (() => {
 	        const input = document.querySelector("#share-url");
 	        const button = document.querySelector("#copy-share-link");
@@ -1066,6 +1086,77 @@ function requireKv(env: Env): KVNamespace {
   return env.MYGH_LINKS;
 }
 
+function validateStoredLinkRecord(
+  value: LinkRecord | null,
+  slug: string,
+): LinkRecord | null {
+  if (!value) {
+    return null;
+  }
+  if (!isRecord(value) || !isTargetType(value.type)) {
+    throw new HttpError(500, "Stored share link data is invalid.");
+  }
+
+  return {
+    ...(value as LinkRecord),
+    type: value.type,
+    slug,
+    sharePath: `/s/${slug}`,
+    githubUrl: normalizeStoredGithubUrl(value.githubUrl),
+    title: readStoredString(value.title, "title", 500),
+    description: readStoredString(value.description, "description", 500),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isTargetType(value: unknown): value is TargetType {
+  return (
+    value === "repo" ||
+    value === "release" ||
+    value === "file" ||
+    value === "commit" ||
+    value === "pull" ||
+    value === "issue"
+  );
+}
+
+function readStoredString(value: unknown, field: string, maxLength: number): string {
+  if (typeof value !== "string") {
+    throw new HttpError(500, `Stored share link ${field} is invalid.`);
+  }
+  const cleaned = value.trim();
+  if (!cleaned || cleaned.length > maxLength || /[\u0000-\u001f\u007f]/.test(cleaned)) {
+    throw new HttpError(500, `Stored share link ${field} is invalid.`);
+  }
+  return cleaned;
+}
+
+function normalizeStoredGithubUrl(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new HttpError(500, "Stored share link target is invalid.");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new HttpError(500, "Stored share link target is invalid.");
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    (parsed.hostname.toLowerCase() !== "github.com" &&
+      parsed.hostname.toLowerCase() !== "www.github.com")
+  ) {
+    throw new HttpError(500, "Stored share link target is invalid.");
+  }
+  if (parsed.pathname.split("/").filter(Boolean).length < 2) {
+    throw new HttpError(500, "Stored share link target is invalid.");
+  }
+  return parsed.href;
+}
+
 async function createSlug(kv: KVNamespace): Promise<string> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const slug = randomSlug();
@@ -1084,18 +1175,49 @@ function randomSlug(): string {
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 }
 
+function randomNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function decodePngDataUrl(dataUrl: string): ArrayBuffer {
   const prefix = "data:image/png;base64,";
   if (!dataUrl.startsWith(prefix)) {
     throw new HttpError(400, "imageDataUrl must be a PNG data URL.");
   }
 
-  const binary = atob(dataUrl.slice(prefix.length));
+  const encoded = dataUrl.slice(prefix.length);
+  const maxEncodedLength = Math.ceil(MAX_PNG_BYTES / 3) * 4;
+  if (encoded.length > maxEncodedLength) {
+    throw new HttpError(413, "PNG image is too large.");
+  }
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 !== 0) {
+    throw new HttpError(400, "imageDataUrl contains invalid base64.");
+  }
+
+  let binary: string;
+  try {
+    binary = atob(encoded);
+  } catch {
+    throw new HttpError(400, "imageDataUrl contains invalid base64.");
+  }
+  if (binary.length > MAX_PNG_BYTES) {
+    throw new HttpError(413, "PNG image is too large.");
+  }
+
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index);
   }
+  if (!hasPngSignature(bytes)) {
+    throw new HttpError(400, "imageDataUrl must contain PNG bytes.");
+  }
   return bytes.buffer;
+}
+
+function hasPngSignature(bytes: Uint8Array): boolean {
+  return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
 }
 
 function isCrawler(request: Request): boolean {
@@ -1346,15 +1468,33 @@ function normalizeTheme(value: string | undefined): string {
 }
 
 async function readJson(request: Request): Promise<Record<string, unknown>> {
+  const contentType = request.headers.get("content-type") || "";
+  const mediaType = contentType.toLowerCase().split(";")[0].trim();
+  const isJson = mediaType === "application/json" || mediaType.endsWith("+json");
+  if (!isJson) {
+    throw new HttpError(415, "Request content type must be application/json.");
+  }
+
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (contentLength > MAX_JSON_BODY_CHARS) {
+    throw new HttpError(413, "Request body is too large.");
+  }
+
+  const bodyText = await request.text();
+  if (bodyText.length > MAX_JSON_BODY_CHARS) {
+    throw new HttpError(413, "Request body is too large.");
+  }
+
+  let body: unknown;
   try {
-    const body = await request.json();
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
-      throw new Error("Invalid body.");
-    }
-    return body as Record<string, unknown>;
+    body = JSON.parse(bodyText);
   } catch {
     throw new HttpError(400, "Request body must be JSON.");
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new HttpError(400, "Request body must be a JSON object.");
+  }
+  return body as Record<string, unknown>;
 }
 
 function readRequiredString(value: unknown, field: string): string {
@@ -1378,12 +1518,39 @@ function getBaseUrl(request: Request): string {
 }
 
 function json(data: unknown, status = 200): Response {
+  const headers = new Headers(securityHeaders("no-store"));
+  headers.set("content-type", "application/json; charset=utf-8");
   return new Response(JSON.stringify(data, null, 2), {
     status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-    },
+    headers,
+  });
+}
+
+function shareHtmlHeaders(cacheControl: string, nonce: string): Headers {
+  const headers = securityHeaders(cacheControl);
+  headers.set(
+    "content-security-policy",
+    [
+      "default-src 'none'",
+      "base-uri 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+      "img-src 'self' data:",
+      `script-src 'nonce-${nonce}'`,
+      `style-src 'nonce-${nonce}'`,
+      "connect-src 'none'",
+      "object-src 'none'",
+    ].join("; "),
+  );
+  headers.set("content-type", "text/html; charset=utf-8");
+  return headers;
+}
+
+function securityHeaders(cacheControl: string): Headers {
+  return new Headers({
+    "cache-control": cacheControl,
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff",
   });
 }
 

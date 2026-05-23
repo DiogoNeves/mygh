@@ -13,7 +13,6 @@ const previewLink = document.querySelector("#preview-link");
 
 const previewCard = document.querySelector("#preview-card");
 const previewContext = previewCard.getContext("2d");
-const previewKind = document.querySelector("#preview-kind");
 
 let currentMetadata = null;
 let activeInspectId = 0;
@@ -258,7 +257,6 @@ function renderPreview() {
   const state = previewState();
 
   previewCard.className = `preview-card theme-${themeName}`;
-  previewKind.textContent = state.kindLabel;
   previewCard.setAttribute(
     "aria-label",
     `${state.fullName}: ${state.title}. ${state.description}`,

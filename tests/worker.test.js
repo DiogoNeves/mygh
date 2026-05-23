@@ -209,6 +209,63 @@ test("rejects non-GitHub inspect URLs before fetching external data", async (t) 
   assert.equal(body.error, "Only github.com URLs are supported.");
 });
 
+test("rejects non-http GitHub inspect URLs before fetching external data", async (t) => {
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () => {
+    throw new Error("GitHub should not be fetched for invalid input.");
+  };
+
+  const response = await worker.fetch(
+    new Request("https://mygh.test/api/inspect?url=ssh%3A%2F%2Fgithub.com%2Foctocat%2FHello-World"),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error, "Enter an http or https GitHub URL.");
+});
+
+test("reports missing GitHub repositories as not found", async (t) => {
+  installGithubMock(t, [
+    {
+      url: "https://api.github.com/repos/octocat/missing-repo",
+      status: 404,
+      body: { message: "Not Found" },
+    },
+  ]);
+
+  const response = await worker.fetch(
+    new Request("https://mygh.test/api/inspect?url=https%3A%2F%2Fgithub.com%2Foctocat%2Fmissing-repo"),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(body.error, "GitHub target not found.");
+});
+
+test("rejects non-GitHub create URLs before requiring KV or fetching", async (t) => {
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () => {
+    throw new Error("GitHub should not be fetched for invalid input.");
+  };
+
+  const response = await worker.fetch(
+    jsonRequest("https://mygh.test/api/links", {
+      githubUrl: "https://example.com/octocat/Hello-World",
+    }),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error, "Only github.com URLs are supported.");
+});
+
 test("inspects latest release URLs with cleaned metadata and GitHub auth headers", async (t) => {
   const calls = installGithubMock(t, [
     {
@@ -361,7 +418,7 @@ test("creates share links by storing sanitized metadata and PNG bytes in KV", as
     },
   ]);
   const kv = new MemoryKv();
-  const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+  const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
   const response = await worker.fetch(
     jsonRequest("https://mygh.test/api/links", {
@@ -392,6 +449,52 @@ test("creates share links by storing sanitized metadata and PNG bytes in KV", as
     githubUrl: "https://github.com/octocat/Hello-World",
     type: "repo",
   });
+});
+
+test("does not write KV data when GitHub returns not found during link creation", async (t) => {
+  installGithubMock(t, [
+    {
+      url: "https://api.github.com/repos/octocat/missing-repo",
+      status: 404,
+      body: { message: "Not Found" },
+    },
+  ]);
+  const kv = new MemoryKv();
+
+  const response = await worker.fetch(
+    jsonRequest("https://mygh.test/api/links", {
+      githubUrl: "https://github.com/octocat/missing-repo",
+    }),
+    { MYGH_LINKS: kv },
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(body.error, "GitHub target not found.");
+  assert.equal(kv.values.size, 0);
+});
+
+test("rejects malformed PNG data without writing KV data", async (t) => {
+  installGithubMock(t, [
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World",
+      body: repoPayload(),
+    },
+  ]);
+  const kv = new MemoryKv();
+
+  const response = await worker.fetch(
+    jsonRequest("https://mygh.test/api/links", {
+      githubUrl: "https://github.com/octocat/Hello-World",
+      imageDataUrl: "data:image/png;base64,AAAA",
+    }),
+    { MYGH_LINKS: kv },
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error, "imageDataUrl must contain PNG bytes.");
+  assert.equal(kv.values.size, 0);
 });
 
 test("redirects human share visits but renders escaped Open Graph HTML for crawlers", async () => {
@@ -425,6 +528,10 @@ test("redirects human share visits but renders escaped Open Graph HTML for crawl
 
   assert.equal(crawlerResponse.status, 200);
   assert.equal(crawlerResponse.headers.get("content-type"), "text/html; charset=utf-8");
+  assert.match(crawlerResponse.headers.get("content-security-policy"), /default-src 'none'/);
+  assert.match(crawlerResponse.headers.get("content-security-policy"), /script-src 'nonce-[a-f0-9]+'/);
+  assert.match(crawlerResponse.headers.get("content-security-policy"), /style-src 'nonce-[a-f0-9]+'/);
+  assert.equal(crawlerResponse.headers.get("x-content-type-options"), "nosniff");
   assert.match(html, /Owned &quot;Repo&quot; &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(html, /A&amp;B &#039;desc&#039; &lt;tag&gt;/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
@@ -433,6 +540,32 @@ test("redirects human share visits but renders escaped Open Graph HTML for crawl
   assert.match(html, /<input id="share-url" value="https:\/\/mygh\.test\/s\/share123" data-share-path="\/s\/share123" readonly>/);
   assert.match(html, /id="copy-share-link"/);
   assert.match(html, /Social media preview/);
+});
+
+test("refuses stored share redirects to non-GitHub targets", async () => {
+  const kv = new MemoryKv();
+  kv.values.set(
+    "link:badtarget",
+    JSON.stringify(
+      linkRecord({
+        slug: "badtarget",
+        sharePath: "/s/badtarget",
+        githubUrl: "https://example.com/phishing",
+      }),
+    ),
+  );
+
+  const response = await worker.fetch(
+    new Request("https://mygh.test/s/badtarget", {
+      headers: { "user-agent": "Mozilla/5.0" },
+    }),
+    { MYGH_LINKS: kv },
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(response.headers.get("location"), null);
+  assert.equal(body.error, "Stored share link target is invalid.");
 });
 
 test("renders dev share preview locally without KV or saved image", async () => {
@@ -445,6 +578,7 @@ test("renders dev share preview locally without KV or saved image", async () => 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "text/html; charset=utf-8");
   assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.match(response.headers.get("content-security-policy"), /default-src 'none'/);
   assert.match(html, /DiogoNeves\/mygh/);
   assert.match(html, /Development preview of the saved mygh share page/);
   assert.match(html, /<meta property="og:image" content="\/dev\/share-preview\.svg">/);
@@ -496,5 +630,6 @@ test("serves stored PNG images with long-lived cache headers", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "image/png");
   assert.equal(response.headers.get("cache-control"), "public, max-age=31536000, immutable");
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.deepEqual([...body], [...bytes]);
 });
