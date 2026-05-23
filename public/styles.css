@@ -350,7 +350,17 @@ svg {
   padding: 0;
 }
 
+.chip-controls {
+  border: 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 4px 0 0;
+  padding: 0;
+}
+
 .appearance legend,
+.chip-controls legend,
 .section-heading h2 {
   color: var(--ink);
   font-size: 14px;
@@ -361,6 +371,48 @@ svg {
 .appearance legend {
   grid-column: 1 / -1;
   margin-bottom: 2px;
+}
+
+.chip-controls legend {
+  grid-column: 1 / -1;
+}
+
+.chip-controls label {
+  margin: 0;
+  position: relative;
+}
+
+.chip-controls input {
+  height: 1px;
+  margin: 0;
+  min-height: 0;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.chip-controls span {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 850;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 8px;
+}
+
+.chip-controls input:checked + span {
+  background: var(--press);
+  border-color: var(--press);
+  box-shadow: 4px 4px 0 var(--accent-2);
+  color: #ffffff;
 }
 
 .theme-choice {
@@ -398,6 +450,11 @@ svg {
 .theme-choice input:checked + span {
   border-color: var(--press);
   box-shadow: 0 0 0 1px var(--press), 4px 4px 0 var(--accent-2);
+}
+
+.chip-controls input:focus-visible + span,
+.chip-controls input:hover + span {
+  border-color: var(--press);
 }
 
 .theme-thumb {
@@ -466,6 +523,7 @@ svg {
   overflow: hidden;
   padding: 36px;
   position: relative;
+  row-gap: 18px;
 }
 
 .preview-card > * {
@@ -514,7 +572,9 @@ svg {
   font-weight: 800;
   gap: 10px;
   grid-column: 1 / -1;
+  grid-row: 1;
   min-width: 0;
+  z-index: 2;
 }
 
 .preview-head span:last-child {
@@ -533,26 +593,27 @@ svg {
 }
 
 .preview-copy {
-  align-self: end;
+  align-self: start;
   grid-column: 1;
+  grid-row: 2;
   max-width: 780px;
   min-width: 0;
-  padding: 34px 0 4px;
+  padding: 0;
 }
 
 .preview-card h3 {
   font-family: var(--font-display);
-  font-size: 48px;
+  font-size: 43px;
   font-weight: 700;
   line-height: 1.02;
-  margin: 0 0 18px;
+  margin: 0 0 14px;
   max-width: 100%;
   overflow-wrap: anywhere;
 }
 
 .preview-card p {
   color: currentColor;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.45;
   margin: 0;
   max-width: 620px;
@@ -560,7 +621,7 @@ svg {
 }
 
 .preview-asset {
-  align-self: center;
+  align-self: start;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.12)),
     var(--surface-2);
@@ -607,7 +668,8 @@ svg {
   flex-wrap: wrap;
   gap: 10px;
   grid-column: 1 / -1;
-  margin-top: 28px;
+  grid-row: 3;
+  margin-top: 0;
 }
 
 .preview-stats span {
@@ -739,11 +801,19 @@ svg {
   min-height: 20px;
 }
 
+.storage-note {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin: -2px 0 0;
+}
+
 input:focus-visible,
 textarea:focus-visible,
 button:focus-visible,
 a:focus-visible,
-.theme-choice input:focus-visible + span {
+.theme-choice input:focus-visible + span,
+.chip-controls input:focus-visible + span {
   outline: 3px solid rgba(240, 90, 63, 0.35);
   outline-offset: 3px;
 }
@@ -851,6 +921,10 @@ a:focus-visible,
   }
 
   .appearance {
+    grid-template-columns: 1fr;
+  }
+
+  .chip-controls {
     grid-template-columns: 1fr;
   }
 

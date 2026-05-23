@@ -32,6 +32,29 @@ Do not deploy unless the user explicitly asks.
 - Higher GitHub API limits require the `GITHUB_TOKEN` Worker secret. Do not store tokens in source files, `wrangler.jsonc`, or committed `.env` files.
 - `wrangler.jsonc` intentionally contains commented examples for KV and production routes. Keep real IDs and route changes deliberate.
 
+## Cloudflare Deployment
+
+- Production domain: `https://mygh.site`.
+- Use the Cloudflare plugin for Cloudflare account, DNS, Worker, KV, custom-domain, and observability checks.
+- Deploy only when the user explicitly asks. Preferred deploy command:
+
+  ```bash
+  npx wrangler deploy --config wrangler.local.jsonc
+  ```
+
+- `wrangler.local.jsonc` is ignored and may contain the real `MYGH_LINKS` namespace ID. Do not commit local config files, KV IDs, secrets, `.dev.vars`, or generated Cloudflare caches.
+- The Cloudflare zone for `mygh.site` is active and uses nameservers:
+  - `malavika.ns.cloudflare.com`
+  - `rocco.ns.cloudflare.com`
+- The Worker name is `mygh`; the workers.dev fallback URL is `https://mygh.diogo-neves.workers.dev`.
+- Custom domains should be `mygh.site` and `www.mygh.site`.
+- If `wrangler deploy` fails with Cloudflare error `100117` about externally managed DNS records, inspect DNS before changing anything. The expected fix is to delete only conflicting A/CNAME-style records for the exact hostnames `mygh.site` and `www.mygh.site`, then rerun the deploy. Keep the Hover email MX record (`mx.hover.com.cust.hostedemail.com`) unless the user explicitly asks to change email routing.
+- After deployment, verify:
+  - `curl https://mygh.site/health`
+  - `curl https://www.mygh.site/health`
+  - `curl https://mygh.diogo-neves.workers.dev/health`
+- The project has `observability.enabled` in Wrangler config, so Worker logs and built-in request/error/runtime metrics should be available in Cloudflare Workers observability after traffic reaches the Worker. Use Analytics Engine only for custom product metrics such as link creations, per-slug clicks, or top shared repositories.
+
 ## Code Style
 
 - Keep Worker code compatible with the Cloudflare Workers runtime. Avoid Node-only APIs unless Wrangler/Workers explicitly supports them.

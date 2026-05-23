@@ -3,6 +3,7 @@ const urlInput = document.querySelector("#github-url");
 const titleInput = document.querySelector("#card-title");
 const descriptionInput = document.querySelector("#card-description");
 const themeInputs = Array.from(document.querySelectorAll('input[name="theme"]'));
+const infoInputs = Array.from(document.querySelectorAll('input[name="info-chip"]'));
 const createButton = document.querySelector("#create-link");
 const statusEl = document.querySelector("#status");
 const resultEl = document.querySelector("#result");
@@ -64,8 +65,15 @@ form.addEventListener("submit", async (event) => {
   await inspectUrl();
 });
 
-for (const input of [titleInput, descriptionInput, ...themeInputs]) {
+const statElements = {
+  language: previewLanguage,
+  stars: previewStars,
+  extra: previewExtra,
+};
+
+for (const input of [titleInput, descriptionInput, ...themeInputs, ...infoInputs]) {
   input.addEventListener("input", renderPreview);
+  input.addEventListener("change", renderPreview);
 }
 
 createButton.addEventListener("click", async () => {
@@ -117,6 +125,7 @@ async function createShareLink() {
         title: titleInput.value,
         description: descriptionInput.value,
         theme: selectedTheme(),
+        infoChips: Array.from(selectedInfoChips()),
         imageDataUrl,
       }),
     });
@@ -139,6 +148,7 @@ async function createShareLink() {
 function renderPreview() {
   const theme = selectedTheme();
   previewCard.className = `preview-card theme-${theme}`;
+  updateVisibleStats();
 
   if (!currentMetadata) {
     return;
@@ -174,6 +184,17 @@ function renderPreview() {
 
 function selectedTheme() {
   return themeInputs.find((input) => input.checked)?.value || "paper";
+}
+
+function selectedInfoChips() {
+  return new Set(infoInputs.filter((input) => input.checked).map((input) => input.value));
+}
+
+function updateVisibleStats() {
+  const selected = selectedInfoChips();
+  for (const [key, element] of Object.entries(statElements)) {
+    element.hidden = !selected.has(key);
+  }
 }
 
 function renderCanvas() {
@@ -260,9 +281,17 @@ function renderCanvas() {
     metadata.type === "release"
       ? metadata.releaseTag || "Release"
       : `${formatNumber(metadata.forks)} forks`;
-  drawChip(ctx, metadata.language || "Source", 96, 510, theme);
-  drawChip(ctx, `${formatNumber(metadata.stars)} stars`, 290, 510, theme);
-  drawChip(ctx, extra, 468, 510, theme);
+  const chips = selectedInfoChips();
+  let chipX = 96;
+  if (chips.has("language")) {
+    chipX += drawChip(ctx, metadata.language || "Source", chipX, 510, theme) + 14;
+  }
+  if (chips.has("stars")) {
+    chipX += drawChip(ctx, `${formatNumber(metadata.stars)} stars`, chipX, 510, theme) + 14;
+  }
+  if (chips.has("extra")) {
+    drawChip(ctx, extra, chipX, 510, theme);
+  }
 
   return canvas.toDataURL("image/png");
 }
@@ -278,6 +307,7 @@ function drawChip(ctx, text, x, y, theme) {
   ctx.stroke();
   ctx.fillStyle = theme.muted;
   ctx.fillText(clipped, x + 17, y + 30);
+  return width;
 }
 
 function drawGrid(ctx, theme, width, height) {

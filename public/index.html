@@ -83,6 +83,22 @@
                   </span>
                 </label>
               </fieldset>
+
+              <fieldset class="chip-controls">
+                <legend>Info chips</legend>
+                <label>
+                  <input type="checkbox" name="info-chip" value="language" checked>
+                  <span>Kind</span>
+                </label>
+                <label>
+                  <input type="checkbox" name="info-chip" value="stars" checked>
+                  <span>Stars</span>
+                </label>
+                <label>
+                  <input type="checkbox" name="info-chip" value="extra" checked>
+                  <span>Extra</span>
+                </label>
+              </fieldset>
             </section>
           </section>
 
@@ -116,6 +132,7 @@
 
           <aside class="publish-panel" aria-label="Publish link">
             <button class="save-button" id="create-link" type="button" disabled>Save share link</button>
+            <p class="storage-note">Cloudflare KV stores the card and PNG. The share URL only carries a short slug.</p>
 
             <section class="result" id="result" hidden>
               <div class="ready-row">

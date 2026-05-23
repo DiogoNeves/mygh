@@ -19,12 +19,12 @@
   // Keep real namespace IDs in an ignored local config, such as
   // wrangler.local.jsonc, rather than committing them here.
   //
-  // "kv_namespaces": [
-  //   {
-  //     "binding": "MYGH_LINKS",
-  //     "id": "paste-cloudflare-kv-namespace-id-here"
-  //   }
-  // ],
+  "kv_namespaces": [
+    {
+      "binding": "MYGH_LINKS",
+      "id": "e0f29670c44d4788a7e90137f45b177d"
+    }
+  ],
   "routes": [
     { "pattern": "mygh.site", "custom_domain": true },
     { "pattern": "www.mygh.site", "custom_domain": true }
