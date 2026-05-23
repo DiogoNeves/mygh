@@ -1,13 +1,5 @@
 # mygh
 
-- GitHub: https://github.com/DiogoNeves/mygh
-- Local path: /Users/diogoneves/Projects/mygh
-- Production domain: https://mygh.site
-- See how it works at: https://mygh.site
-- Platform: Cloudflare Workers + KV
-
-## What it does
-
 mygh, short for "My GitHub", creates nicer share links for GitHub repositories, releases, files, commits, pull requests, and issues.
 
 The user pastes a supported GitHub URL, previews a polished social card, optionally tweaks the copy, then gets a short mygh link. Social crawlers see Open Graph metadata and a generated preview image; normal human clicks redirect to the original GitHub URL.
