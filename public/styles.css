@@ -603,6 +603,12 @@ svg {
   visibility: visible;
 }
 
+.chip-tooltips-dismissed .chip-controls label:hover .chip-tooltip,
+.chip-tooltips-dismissed .chip-controls label:focus-within .chip-tooltip {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .theme-choice {
   display: block;
   margin: 0 !important;
@@ -1082,7 +1088,7 @@ a:focus-visible,
   }
 
   .matrix-header {
-    display: none;
+    display: none !important;
   }
 
   .matrix-row {
@@ -1105,6 +1111,12 @@ a:focus-visible,
 
   .matrix-cell canvas {
     box-shadow: 5px 5px 0 rgba(20, 22, 22, 0.10);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .matrix-grid > .matrix-header {
+    display: none !important;
   }
 }
 
@@ -1144,15 +1156,10 @@ a:focus-visible,
     white-space: normal;
   }
 
-  .appearance {
-    grid-template-columns: 1fr;
-  }
-
   .theme-choice span {
-    grid-template-columns: auto minmax(0, 1fr);
-    justify-items: start;
-    min-height: 56px;
-    padding: 8px 10px;
+    gap: 6px;
+    min-height: 68px;
+    padding: 8px 4px;
   }
 
 }

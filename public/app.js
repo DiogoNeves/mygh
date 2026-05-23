@@ -12,6 +12,7 @@ const titleInput = document.querySelector("#card-title");
 const descriptionInput = document.querySelector("#card-description");
 const themeInputs = Array.from(document.querySelectorAll('input[name="theme"]'));
 const infoInputs = Array.from(document.querySelectorAll('input[name="info-chip"]'));
+const chipControlLabels = Array.from(document.querySelectorAll(".chip-controls label"));
 const createButton = document.querySelector("#create-link");
 const statusEl = document.querySelector("#status");
 const resultEl = document.querySelector("#result");
@@ -64,6 +65,20 @@ for (const input of [titleInput, descriptionInput, ...themeInputs, ...infoInputs
   input.addEventListener("change", renderPreview);
 }
 
+for (const input of [...themeInputs, ...infoInputs]) {
+  input.addEventListener("click", dismissChipTooltips);
+  input.addEventListener("change", dismissChipTooltips);
+}
+
+for (const label of chipControlLabels) {
+  label.addEventListener("pointerdown", resetChipTooltipDismissal);
+  label.addEventListener("pointerenter", (event) => {
+    if (event.pointerType === "mouse") {
+      resetChipTooltipDismissal();
+    }
+  });
+}
+
 createButton.addEventListener("click", async () => {
   if (!currentMetadata) return;
   await createShareLink();
@@ -85,6 +100,17 @@ document.addEventListener("keydown", (event) => {
 });
 
 renderPreview();
+
+function dismissChipTooltips() {
+  document.body.classList.add("chip-tooltips-dismissed");
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+}
+
+function resetChipTooltipDismissal() {
+  document.body.classList.remove("chip-tooltips-dismissed");
+}
 
 function handleUrlInput() {
   const normalizedUrl = normalizeGithubUrl(urlInput.value);

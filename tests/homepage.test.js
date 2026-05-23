@@ -36,6 +36,18 @@ test("homepage social preview image is a 1200 by 630 PNG", async () => {
   assert.equal(image.readUInt32BE(20), 630);
 });
 
+test("homepage footer links to author, source, and X without periods", async () => {
+  const html = await readFile("public/index.html", "utf8");
+  const footer = html.match(/<footer class="site-footer">([\s\S]*?)<\/footer>/)?.[1] || "";
+
+  assert.match(footer, /https:\/\/github\.com\/DiogoNeves/);
+  assert.match(footer, /https:\/\/github\.com\/DiogoNeves\/mygh/);
+  assert.match(footer, /https:\/\/x\.com\/DiogoSnows/);
+  assert.match(footer, /Ask me anything on/);
+  assert.doesNotMatch(footer, /<\/a>\./);
+  assert.doesNotMatch(footer, /<\/span>\./);
+});
+
 test("homepage exposes the preview matrix modal", async () => {
   const [html, appScript, styles] = await Promise.all([
     readFile("public/index.html", "utf8"),
@@ -52,7 +64,26 @@ test("homepage exposes the preview matrix modal", async () => {
   assert.match(appScript, /renderPreviewMatrix\(matrix\)/);
   assert.match(styles, /@media \(max-width: 720px\)/);
   assert.match(styles, /\.matrix-modal-panel \{[\s\S]*?min-height: 100vh;/);
+  assert.match(styles, /\.matrix-header \{[\s\S]*?display: none !important;/);
+  assert.match(styles, /@media \(hover: none\) and \(pointer: coarse\)/);
+  assert.match(styles, /\.matrix-grid > \.matrix-header \{[\s\S]*?display: none !important;/);
   assert.match(styles, /\.matrix-row \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/);
+});
+
+test("homepage dismisses stuck chip tooltips after toggle clicks", async () => {
+  const [appScript, styles] = await Promise.all([
+    readFile("public/app.js", "utf8"),
+    readFile("public/styles.css", "utf8"),
+  ]);
+
+  assert.match(appScript, /const chipControlLabels = Array\.from/);
+  assert.match(appScript, /function dismissChipTooltips\(\)/);
+  assert.match(appScript, /chip-tooltips-dismissed/);
+  assert.match(appScript, /document\.activeElement instanceof HTMLElement/);
+  assert.match(appScript, /pointerenter/);
+  assert.match(styles, /\.chip-tooltips-dismissed \.chip-controls label:hover \.chip-tooltip/);
+  assert.match(styles, /\.chip-tooltips-dismissed \.chip-controls label:focus-within \.chip-tooltip/);
+  assert.match(styles, /visibility: hidden;/);
 });
 
 test("preview matrix data covers every supported link type", async () => {
