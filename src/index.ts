@@ -32,6 +32,8 @@ interface PreviewMetadata {
   forks: number;
   openIssues: number;
   ownerAvatarUrl?: string;
+  licenseName?: string;
+  licenseSpdxId?: string;
   releaseTag?: string;
   releaseName?: string;
   publishedAt?: string;
@@ -410,6 +412,8 @@ async function fetchGithubMetadata(
     forks: Number(repo.forks_count || 0),
     openIssues: Number(repo.open_issues_count || 0),
     ownerAvatarUrl: repo.owner.avatar_url || undefined,
+    licenseName: cleanLicenseValue(repo.license?.name),
+    licenseSpdxId: cleanLicenseSpdxId(repo.license?.spdx_id),
   };
 
   if (target.type === "repo") {
