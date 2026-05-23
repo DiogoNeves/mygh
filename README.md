@@ -2,7 +2,7 @@
 
 mygh, short for "My GitHub", creates nicer share links for GitHub repositories, releases, files, commits, pull requests, and issues.
 
-The user pastes a supported GitHub URL, previews a polished social card, optionally tweaks the copy, then gets a short mygh link. Social crawlers see Open Graph metadata and a generated preview image; normal human clicks redirect to the original GitHub URL.
+Paste a supported GitHub URL, previews a polished social card, optionally tweaks the copy, and get a short mygh link. Social crawlers see Open Graph metadata and a generated preview image; normal human clicks redirect to the original GitHub URL.
 
 ## Supported GitHub links
 
