@@ -64,6 +64,12 @@ npm run dev
 
 The app can inspect GitHub URLs without KV. Creating share links requires a KV namespace.
 
+Run the focused Worker test suite with:
+
+```bash
+npm test
+```
+
 ## Cloudflare setup
 
 1. Log in to Cloudflare:
