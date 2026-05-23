@@ -93,6 +93,13 @@ If a change cannot be verified because KV, secrets, network access, or Cloudflar
 - Use Context7 MCP for current documentation whenever the task asks about a library, framework, SDK, API, CLI tool, or cloud service. Start with `resolve-library-id`, then query the selected docs with the full user question.
 - Prefer official Cloudflare, Wrangler, Workers, KV, TypeScript, and GitHub API documentation when checking platform behavior.
 
+## Good Code Rubric
+
+- Read `good-code-rubric.md` before making coding, review, or architecture decisions.
+- Follow the rubric unless it conflicts with the existing `mygh` conventions in this file; when they conflict, prefer the repository-specific guidance here and in the rubric's `Repository-specific notes for mygh` section.
+- Preserve the current small Cloudflare Worker shape: keep `src/index.ts` explicit, keep `public/` dependency-free, and extract helpers only when clarity or testability improves.
+- For reviews, use the rubric checklist as a quality bar for file size, validation, side effects, naming, error handling, tests, and secret handling.
+
 ## Git And Commits
 
 - The worktree may contain user changes. Do not revert or overwrite unrelated changes.
