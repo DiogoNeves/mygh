@@ -12,17 +12,31 @@ const copyButton = document.querySelector("#copy-link");
 const previewLink = document.querySelector("#preview-link");
 
 const previewCard = document.querySelector("#preview-card");
+const previewContext = previewCard.getContext("2d");
 const previewKind = document.querySelector("#preview-kind");
-const previewLanguage = document.querySelector("#preview-language");
-const previewRepo = document.querySelector("#preview-repo");
-const previewTitle = document.querySelector("#preview-title");
-const previewDescription = document.querySelector("#preview-description");
-const previewStars = document.querySelector("#preview-stars");
-const previewExtra = document.querySelector("#preview-extra");
-const previewAvatar = document.querySelector("#preview-avatar");
-const previewMonogram = document.querySelector("#preview-monogram");
 
 let currentMetadata = null;
+let activeInspectId = 0;
+let hasEditedDescription = false;
+let hasEditedTitle = false;
+let inspectTimer = 0;
+let isApplyingMetadata = false;
+let lastInspectedUrl = "";
+
+const PREVIEW_WIDTH = 1200;
+const PREVIEW_HEIGHT = 630;
+
+const fallbackMetadata = Object.freeze({
+  type: "repository",
+  fullName: "owner/repo",
+  owner: "owner",
+  repo: "repo",
+  title: "Paste a GitHub repo or release URL",
+  description: "mygh creates an unfurl-friendly link that redirects back to GitHub.",
+  language: "Repository",
+  stars: 0,
+  forks: 0,
+});
 
 const themes = {
   paper: {
@@ -62,17 +76,29 @@ const themes = {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await inspectUrl();
+  await inspectUrl({ force: true });
 });
 
-const statElements = {
-  language: previewLanguage,
-  stars: previewStars,
-  extra: previewExtra,
-};
+urlInput.addEventListener("input", handleUrlInput);
+urlInput.addEventListener("paste", () => {
+  window.setTimeout(() => scheduleAutoInspect(120), 0);
+});
+
+titleInput.addEventListener("input", () => {
+  if (!isApplyingMetadata) {
+    hasEditedTitle = true;
+  }
+  renderPreview();
+});
+
+descriptionInput.addEventListener("input", () => {
+  if (!isApplyingMetadata) {
+    hasEditedDescription = true;
+  }
+  renderPreview();
+});
 
 for (const input of [titleInput, descriptionInput, ...themeInputs, ...infoInputs]) {
-  input.addEventListener("input", renderPreview);
   input.addEventListener("change", renderPreview);
 }
 
@@ -87,28 +113,96 @@ copyButton.addEventListener("click", async () => {
   setStatus("Copied.");
 });
 
-async function inspectUrl() {
+renderPreview();
+
+function handleUrlInput() {
+  const normalizedUrl = normalizeGithubUrl(urlInput.value);
+  const isNewTarget = normalizedUrl && normalizedUrl !== lastInspectedUrl;
+  if (!urlInput.value.trim() || isNewTarget) {
+    currentMetadata = null;
+    createButton.disabled = true;
+    resultEl.hidden = true;
+    hasEditedDescription = false;
+    hasEditedTitle = false;
+    if (!urlInput.value.trim()) {
+      titleInput.value = "";
+      descriptionInput.value = "";
+      setStatus("");
+    }
+    renderPreview();
+  }
+  scheduleAutoInspect();
+}
+
+function scheduleAutoInspect(delay = 650) {
+  window.clearTimeout(inspectTimer);
+  if (!normalizeGithubUrl(urlInput.value)) {
+    return;
+  }
+  inspectTimer = window.setTimeout(() => {
+    inspectUrl();
+  }, delay);
+}
+
+async function inspectUrl({ force = false } = {}) {
+  const githubUrl = normalizeGithubUrl(urlInput.value);
+  if (!githubUrl) {
+    if (force) {
+      setStatus("Enter a GitHub repository or release URL.");
+    }
+    return false;
+  }
+
+  if (!force && currentMetadata && githubUrl === lastInspectedUrl) {
+    return true;
+  }
+
+  window.clearTimeout(inspectTimer);
+  const inspectId = activeInspectId + 1;
+  activeInspectId = inspectId;
   setStatus("Fetching GitHub metadata...");
   resultEl.hidden = true;
   createButton.disabled = true;
 
   try {
-    const response = await fetch(`/api/inspect?url=${encodeURIComponent(urlInput.value)}`);
+    const response = await fetch(`/api/inspect?url=${encodeURIComponent(githubUrl)}`);
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.error || "Could not inspect URL.");
     }
+    if (inspectId !== activeInspectId) {
+      return false;
+    }
 
     currentMetadata = data.metadata;
-    titleInput.value = currentMetadata.title;
-    descriptionInput.value = currentMetadata.description;
+    lastInspectedUrl = githubUrl;
+    applyMetadata(githubUrl, currentMetadata);
     renderPreview();
     createButton.disabled = false;
     setStatus("Preview ready.");
+    return true;
   } catch (error) {
+    if (inspectId !== activeInspectId) {
+      return false;
+    }
     currentMetadata = null;
+    lastInspectedUrl = "";
+    renderPreview();
     setStatus(error.message);
+    return false;
   }
+}
+
+function applyMetadata(githubUrl, metadata) {
+  isApplyingMetadata = true;
+  urlInput.value = githubUrl;
+  if (!hasEditedTitle) {
+    titleInput.value = metadata.title;
+  }
+  if (!hasEditedDescription) {
+    descriptionInput.value = metadata.description;
+  }
+  isApplyingMetadata = false;
 }
 
 async function createShareLink() {
@@ -146,40 +240,23 @@ async function createShareLink() {
 }
 
 function renderPreview() {
-  const theme = selectedTheme();
-  previewCard.className = `preview-card theme-${theme}`;
-  updateVisibleStats();
+  const themeName = selectedTheme();
+  const theme = themes[themeName] || themes.paper;
+  const state = previewState();
 
-  if (!currentMetadata) {
-    return;
-  }
-
-  previewKind.textContent =
-    currentMetadata.type === "release" ? "Release" : "Repository";
-  previewLanguage.textContent = currentMetadata.language || "Source";
-  previewRepo.textContent = currentMetadata.fullName;
-  previewTitle.textContent = titleInput.value || currentMetadata.title;
-  previewDescription.textContent =
-    descriptionInput.value || currentMetadata.description;
-  previewStars.textContent = `${formatNumber(currentMetadata.stars)} stars`;
-  previewExtra.textContent =
-    currentMetadata.type === "release"
-      ? currentMetadata.releaseTag || "Release"
-      : `${formatNumber(currentMetadata.forks)} forks`;
-
-  const monogram = (currentMetadata.repo || currentMetadata.owner || "G")
-    .slice(0, 1)
-    .toUpperCase();
-  previewMonogram.textContent = monogram;
-  if (currentMetadata.ownerAvatarUrl) {
-    previewAvatar.src = currentMetadata.ownerAvatarUrl;
-    previewAvatar.hidden = false;
-    previewMonogram.hidden = true;
-  } else {
-    previewAvatar.removeAttribute("src");
-    previewAvatar.hidden = true;
-    previewMonogram.hidden = false;
-  }
+  previewCard.className = `preview-card theme-${themeName}`;
+  previewKind.textContent = state.kindLabel;
+  previewCard.setAttribute(
+    "aria-label",
+    `${state.fullName}: ${state.title}. ${state.description}`,
+  );
+  drawPreviewImage(
+    previewContext,
+    state,
+    theme,
+    themeName,
+    selectedInfoChips(),
+  );
 }
 
 function selectedTheme() {
@@ -190,33 +267,56 @@ function selectedInfoChips() {
   return new Set(infoInputs.filter((input) => input.checked).map((input) => input.value));
 }
 
-function updateVisibleStats() {
-  const selected = selectedInfoChips();
-  for (const [key, element] of Object.entries(statElements)) {
-    element.hidden = !selected.has(key);
-  }
+function previewState() {
+  const metadata = currentMetadata || fallbackMetadata;
+  const type = metadata.type === "release" ? "release" : "repository";
+  const title = currentMetadata
+    ? titleInput.value || metadata.title
+    : fallbackMetadata.title;
+  const description = currentMetadata
+    ? descriptionInput.value || metadata.description
+    : fallbackMetadata.description;
+  const extra = !currentMetadata
+    ? "Ready"
+    : type === "release"
+      ? metadata.releaseTag || "Release"
+      : `${formatNumber(metadata.forks)} forks`;
+
+  return {
+    ...metadata,
+    type,
+    title,
+    description,
+    extra,
+    kindLabel: currentMetadata
+      ? type === "release"
+        ? "Release"
+        : "Repository"
+      : "GitHub",
+    language: metadata.language || (currentMetadata ? "Source" : "Repository"),
+    monogram: (metadata.repo || metadata.owner || "G").slice(0, 1).toUpperCase(),
+    starsLabel: `${formatNumber(metadata.stars)} stars`,
+  };
 }
 
 function renderCanvas() {
-  const metadata = currentMetadata;
-  const theme = themes[selectedTheme()] || themes.paper;
-  const canvas = document.createElement("canvas");
-  canvas.width = 1200;
-  canvas.height = 630;
-  const ctx = canvas.getContext("2d");
+  renderPreview();
+  return previewCard.toDataURL("image/png");
+}
 
+function drawPreviewImage(ctx, state, theme, themeName, chips) {
   ctx.fillStyle = theme.background;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  drawGrid(ctx, theme, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+  drawGrid(ctx, theme, PREVIEW_WIDTH, PREVIEW_HEIGHT, themeName);
 
   ctx.save();
-  ctx.globalAlpha = selectedTheme() === "dusk" ? 0.34 : 0.28;
+  ctx.globalAlpha = themeName === "dusk" ? 0.34 : 0.28;
   ctx.fillStyle = theme.accent;
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(400, 0);
-  ctx.lineTo(265, canvas.height);
-  ctx.lineTo(0, canvas.height);
+  ctx.lineTo(265, PREVIEW_HEIGHT);
+  ctx.lineTo(0, PREVIEW_HEIGHT);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
@@ -243,7 +343,7 @@ function renderCanvas() {
 
   ctx.fillStyle = theme.ink;
   ctx.font = "800 30px SFMono-Regular, Cascadia Mono, monospace";
-  ctx.fillText(clipText(ctx, metadata.fullName, 620), 174, 127);
+  ctx.fillText(clipText(ctx, state.fullName, 620), 174, 127);
 
   ctx.fillStyle = theme.accent;
   ctx.font = "700 32px Georgia, Times New Roman, serif";
@@ -251,22 +351,13 @@ function renderCanvas() {
 
   ctx.fillStyle = theme.ink;
   ctx.font = "700 68px Georgia, Times New Roman, serif";
-  wrapText(ctx, titleInput.value || metadata.title, 96, 258, 690, 75, 2);
+  wrapText(ctx, state.title, 96, 258, 690, 75, 2);
 
   ctx.fillStyle = theme.muted;
   ctx.font = "400 29px Avenir Next, Trebuchet MS, sans-serif";
-  wrapText(
-    ctx,
-    descriptionInput.value || metadata.description,
-    96,
-    416,
-    720,
-    42,
-    2,
-  );
+  wrapText(ctx, state.description, 96, 416, 720, 42, 2);
 
-  const logoLetter = (metadata.repo || metadata.owner || "G").slice(0, 1).toUpperCase();
-  ctx.fillStyle = selectedTheme() === "dusk" ? "#060909" : "#f2f6f3";
+  ctx.fillStyle = themeName === "dusk" ? "#060909" : "#f2f6f3";
   roundRect(ctx, 868, 226, 202, 202, 16);
   ctx.fill();
   ctx.strokeStyle = theme.border;
@@ -274,26 +365,19 @@ function renderCanvas() {
   ctx.fillStyle = theme.ink;
   ctx.font = "700 126px Georgia, Times New Roman, serif";
   ctx.textAlign = "center";
-  ctx.fillText(logoLetter, 969, 370);
+  ctx.fillText(state.monogram, 969, 370);
   ctx.textAlign = "start";
 
-  const extra =
-    metadata.type === "release"
-      ? metadata.releaseTag || "Release"
-      : `${formatNumber(metadata.forks)} forks`;
-  const chips = selectedInfoChips();
   let chipX = 96;
   if (chips.has("language")) {
-    chipX += drawChip(ctx, metadata.language || "Source", chipX, 510, theme) + 14;
+    chipX += drawChip(ctx, state.language, chipX, 510, theme) + 14;
   }
   if (chips.has("stars")) {
-    chipX += drawChip(ctx, `${formatNumber(metadata.stars)} stars`, chipX, 510, theme) + 14;
+    chipX += drawChip(ctx, state.starsLabel, chipX, 510, theme) + 14;
   }
   if (chips.has("extra")) {
-    drawChip(ctx, extra, chipX, 510, theme);
+    drawChip(ctx, state.extra, chipX, 510, theme);
   }
-
-  return canvas.toDataURL("image/png");
 }
 
 function drawChip(ctx, text, x, y, theme) {
@@ -310,9 +394,9 @@ function drawChip(ctx, text, x, y, theme) {
   return width;
 }
 
-function drawGrid(ctx, theme, width, height) {
+function drawGrid(ctx, theme, width, height, themeName) {
   ctx.save();
-  ctx.globalAlpha = selectedTheme() === "dusk" ? 0.18 : 0.13;
+  ctx.globalAlpha = themeName === "dusk" ? 0.18 : 0.13;
   ctx.strokeStyle = theme.ink;
   ctx.lineWidth = 1;
   for (let x = 0; x <= width; x += 48) {

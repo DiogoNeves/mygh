@@ -108,26 +108,15 @@
               <span id="preview-kind">GitHub</span>
             </div>
 
-            <article class="preview-card theme-paper" id="preview-card">
-              <div class="preview-glow" aria-hidden="true"></div>
-              <div class="preview-head">
-                <span class="repo-mark" aria-hidden="true">GH</span>
-                <span id="preview-repo">owner/repo</span>
-              </div>
-              <div class="preview-copy">
-                <h3 id="preview-title">Paste a GitHub repo or release URL</h3>
-                <p id="preview-description">mygh creates an unfurl-friendly link that redirects back to GitHub.</p>
-              </div>
-              <div class="preview-asset" aria-hidden="true">
-                <img id="preview-avatar" alt="" hidden>
-                <span id="preview-monogram">G</span>
-              </div>
-              <div class="preview-stats">
-                <span id="preview-language">Repository</span>
-                <span id="preview-stars">0 stars</span>
-                <span id="preview-extra">Ready</span>
-              </div>
-            </article>
+            <div class="preview-frame">
+              <canvas
+                class="preview-card theme-paper"
+                id="preview-card"
+                width="1200"
+                height="630"
+                aria-label="Generated GitHub social preview"
+              ></canvas>
+            </div>
           </section>
 
           <aside class="publish-panel" aria-label="Publish link">
