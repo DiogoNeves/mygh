@@ -133,6 +133,13 @@ svg {
   text-decoration: none;
 }
 
+.brand-copy {
+  align-items: baseline;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .brand-mark {
   align-items: center;
   background:
@@ -248,13 +255,6 @@ svg {
   text-transform: uppercase;
 }
 
-.intro-title {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-}
-
 .intro h1 {
   font-family: var(--font-display);
   font-size: clamp(28px, 2.4vw, 34px);
@@ -262,12 +262,6 @@ svg {
   line-height: 1.04;
   margin: 0;
   max-width: 12ch;
-}
-
-.intro-title .header-kicker::before {
-  color: var(--line-strong);
-  content: "/";
-  margin-right: 12px;
 }
 
 .composer,
