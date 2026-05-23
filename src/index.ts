@@ -98,14 +98,20 @@ export default {
         return await handleCreateLink(request, env);
       }
 
-      if (request.method === "GET" && isDevSharePreviewPath(url.pathname)) {
+      if (request.method === "GET" && isDevelopmentOnlyPath(url.pathname)) {
         if (!isLocalDevelopmentRequest(request)) {
           throw new HttpError(404, "Not found.");
         }
         if (url.pathname === "/dev/share-preview") {
           return handleDevSharePreview(request);
         }
-        return handleDevSharePreviewImage();
+        if (url.pathname === "/dev/share-preview.svg") {
+          return handleDevSharePreviewImage();
+        }
+        if (url.pathname === "/dev/preview-matrix") {
+          return handleDevPreviewMatrix();
+        }
+        return await handleDevAsset(request, env);
       }
 
       const imageMatch = url.pathname.match(/^\/img\/([a-zA-Z0-9_-]+)\.png$/);
@@ -219,6 +225,29 @@ function handleDevSharePreviewImage(): Response {
   });
 }
 
+function handleDevPreviewMatrix(): Response {
+  return new Response(renderDevPreviewMatrixHtml(), {
+    headers: devPreviewMatrixHeaders(),
+  });
+}
+
+async function handleDevAsset(request: Request, env: Env): Promise<Response> {
+  if (!env.ASSETS) {
+    throw new HttpError(404, "Not found.");
+  }
+
+  const response = await env.ASSETS.fetch(request);
+  const headers = new Headers(response.headers);
+  headers.set("cache-control", "no-store");
+  headers.set("x-content-type-options", "nosniff");
+
+  return new Response(response.body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
+
 function devShareRecord(): LinkRecord {
   return {
     version: 1,
@@ -239,6 +268,150 @@ function devShareRecord(): LinkRecord {
     sharePath: "/dev/share-preview",
     theme: "paper",
   };
+}
+
+function renderDevPreviewMatrixHtml(): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>mygh preview image matrix</title>
+    <style>
+      :root {
+        --page: #e8edf0;
+        --surface: #fbfdfb;
+        --ink: #141616;
+        --muted: #626b68;
+        --line: #cbd5d0;
+        --accent: #116a50;
+        --accent-2: #dfff55;
+        --font-body: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+        --font-display: Georgia, "Times New Roman", serif;
+        --font-mono: "SFMono-Regular", "Cascadia Mono", "Liberation Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+        letter-spacing: 0;
+      }
+      body {
+        background:
+          linear-gradient(120deg, rgba(251, 253, 251, 0.96) 0 31%, rgba(223, 255, 85, 0.24) 31% 36%, transparent 36%),
+          repeating-linear-gradient(0deg, rgba(20, 22, 22, 0.08) 0 1px, transparent 1px 56px),
+          repeating-linear-gradient(90deg, rgba(20, 22, 22, 0.06) 0 1px, transparent 1px 56px),
+          var(--page);
+        color: var(--ink);
+        font-family: var(--font-body);
+        margin: 0;
+        min-height: 100vh;
+      }
+      main {
+        padding: 28px;
+      }
+      .matrix-shell {
+        background: rgba(251, 253, 251, 0.88);
+        border: 1px solid rgba(158, 170, 165, 0.7);
+        border-radius: 8px;
+        box-shadow: 0 28px 80px rgba(20, 22, 22, 0.16);
+        overflow: auto;
+        padding: 22px;
+      }
+      .matrix-header-bar {
+        align-items: baseline;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding-bottom: 16px;
+      }
+      h1 {
+        font-family: var(--font-display);
+        font-size: 28px;
+        line-height: 1;
+        margin: 0;
+      }
+      .matrix-header-bar p {
+        color: var(--muted);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 750;
+        margin: 0;
+      }
+      .matrix-grid {
+        display: grid;
+        gap: 16px;
+        min-width: 1320px;
+      }
+      .matrix-row {
+        align-items: start;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 170px repeat(3, minmax(320px, 1fr));
+      }
+      .matrix-header {
+        align-items: center;
+        color: var(--muted);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 850;
+        text-transform: uppercase;
+      }
+      .row-label {
+        border-top: 1px solid var(--line);
+        min-height: 100%;
+        padding-top: 12px;
+      }
+      .row-label span {
+        display: block;
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.05;
+      }
+      .row-label code {
+        color: var(--muted);
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        line-height: 1.35;
+        margin-top: 10px;
+        overflow-wrap: anywhere;
+      }
+      .matrix-cell {
+        margin: 0;
+      }
+      .matrix-cell canvas {
+        aspect-ratio: 1200 / 630;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 8px 8px 0 rgba(20, 22, 22, 0.12);
+        display: block;
+        height: auto;
+        width: 100%;
+      }
+      .matrix-cell figcaption {
+        color: var(--muted);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 750;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="matrix-shell" aria-labelledby="matrix-title">
+        <header class="matrix-header-bar">
+          <h1 id="matrix-title">mygh preview image matrix</h1>
+          <p>local development only</p>
+        </header>
+        <div class="matrix-grid" id="preview-matrix" data-dev-preview-matrix></div>
+      </section>
+    </main>
+    <script type="module" src="/dev/preview-matrix.js"></script>
+  </body>
+</html>`;
 }
 
 function renderDevSharePreviewSvg(): string {
@@ -1237,8 +1410,13 @@ function isCrawler(request: Request): boolean {
   ].some((needle) => userAgent.includes(needle));
 }
 
-function isDevSharePreviewPath(pathname: string): boolean {
-  return pathname === "/dev/share-preview" || pathname === "/dev/share-preview.svg";
+function isDevelopmentOnlyPath(pathname: string): boolean {
+  return [
+    "/dev/share-preview",
+    "/dev/share-preview.svg",
+    "/dev/preview-matrix",
+    "/dev/preview-matrix.js",
+  ].includes(pathname);
 }
 
 function isLocalDevelopmentRequest(request: Request): boolean {
@@ -1538,6 +1716,26 @@ function shareHtmlHeaders(cacheControl: string, nonce: string): Headers {
       "img-src 'self' data:",
       `script-src 'nonce-${nonce}'`,
       `style-src 'nonce-${nonce}'`,
+      "connect-src 'none'",
+      "object-src 'none'",
+    ].join("; "),
+  );
+  headers.set("content-type", "text/html; charset=utf-8");
+  return headers;
+}
+
+function devPreviewMatrixHeaders(): Headers {
+  const headers = securityHeaders("no-store");
+  headers.set(
+    "content-security-policy",
+    [
+      "default-src 'none'",
+      "base-uri 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+      "img-src 'self' data:",
+      "script-src 'self'",
+      "style-src 'unsafe-inline'",
       "connect-src 'none'",
       "object-src 'none'",
     ].join("; "),

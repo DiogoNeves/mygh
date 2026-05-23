@@ -626,6 +626,35 @@ test("blocks dev share preview on non-local hosts", async () => {
   assert.equal(body.error, "Not found.");
 });
 
+test("renders dev preview matrix locally", async () => {
+  const response = await worker.fetch(
+    new Request("http://localhost:8787/dev/preview-matrix"),
+    {},
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/html; charset=utf-8");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.match(response.headers.get("content-security-policy"), /script-src 'self'/);
+  assert.match(html, /mygh preview image matrix/);
+  assert.match(html, /data-dev-preview-matrix/);
+  assert.match(html, /<script type="module" src="\/dev\/preview-matrix\.js"><\/script>/);
+});
+
+test("blocks dev preview matrix on non-local hosts", async () => {
+  for (const pathname of ["/dev/preview-matrix", "/dev/preview-matrix.js"]) {
+    const response = await worker.fetch(
+      new Request(`https://mygh.test${pathname}`),
+      {},
+    );
+    const body = await response.json();
+
+    assert.equal(response.status, 404);
+    assert.equal(body.error, "Not found.");
+  }
+});
+
 test("serves stored PNG images with long-lived cache headers", async () => {
   const kv = new MemoryKv();
   const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);

@@ -12,13 +12,6 @@
       <section class="studio" aria-labelledby="app-title">
         <header class="app-header">
           <a class="brand" href="/" aria-label="mygh home">
-            <span class="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M9.2 14.8a3.2 3.2 0 0 1 0-4.5l1.1-1.1 1.4 1.4-1.1 1.1a1.2 1.2 0 0 0 1.7 1.7l1.1-1.1 1.4 1.4-1.1 1.1a3.2 3.2 0 0 1-4.5 0Z"></path>
-                <path d="M12.3 10.3 9.9 7.9l1.4-1.4 2.4 2.4-1.4 1.4Z"></path>
-                <path d="M13.7 17.5 10 13.8l1.4-1.4 3.7 3.7a1.2 1.2 0 0 0 1.7-1.7l-1.1-1.1 1.4-1.4 1.1 1.1a3.2 3.2 0 0 1-4.5 4.5Z"></path>
-              </svg>
-            </span>
             <span class="brand-copy">
               <span class="brand-name">my<span>gh</span></span>
               <span class="header-kicker">GitHub link studio</span>
@@ -29,12 +22,24 @@
         <div class="studio-grid">
           <section class="control-panel" aria-label="Build link">
             <section class="intro">
-              <p class="eyebrow">Open graph workshop</p>
               <h1 id="app-title">A GitHub link worth opening.</h1>
             </section>
 
             <form class="composer" id="inspect-form">
-              <label for="github-url">GitHub URL</label>
+              <div class="field-label">
+                <label for="github-url">GitHub URL</label>
+                <button
+                  class="info-trigger"
+                  type="button"
+                  aria-label="Accepted GitHub link types"
+                  aria-describedby="github-url-tip"
+                >
+                  <span aria-hidden="true">i</span>
+                </button>
+                <span class="field-tooltip" id="github-url-tip" role="tooltip">
+                  Public repos, releases, files, commits, PRs, and issues.
+                </span>
+              </div>
               <div class="input-card">
                 <input
                   id="github-url"
@@ -108,10 +113,6 @@
 
           <div class="preview-column">
             <section class="preview-section" aria-label="Preview">
-              <div class="section-heading">
-                <h2>Preview</h2>
-              </div>
-
               <div class="preview-frame">
                 <canvas
                   class="preview-card theme-paper"
@@ -167,7 +168,9 @@
         </div>
 
         <footer class="site-footer">
-          Created by <a href="https://github.com/DiogoNeves" target="_blank" rel="noreferrer">Diogo Neves</a>.
+          <span>Created by <a href="https://github.com/DiogoNeves" target="_blank" rel="noreferrer">Diogo Neves</a>.</span>
+          <span class="footer-divider" aria-hidden="true">/</span>
+          <a href="https://github.com/DiogoNeves/mygh" target="_blank" rel="noreferrer">Source on GitHub</a>.
         </footer>
       </section>
     </main>

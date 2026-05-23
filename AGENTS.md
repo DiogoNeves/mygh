@@ -29,6 +29,9 @@ Do not deploy unless the user explicitly asks.
 - `npm run dev` runs `wrangler dev`.
 - The app can inspect GitHub URLs without KV.
 - Creating share links requires the `MYGH_LINKS` KV binding in `wrangler.jsonc`.
+- The local-only preview matrix is available at `/dev/preview-matrix` while `wrangler dev` is running. For example, run `npm run dev -- --port 8788`, then open `http://localhost:8788/dev/preview-matrix`.
+- Use `/dev/preview-matrix` when changing the generated 1200x630 social preview card. It renders every supported GitHub URL type in rows and every theme in columns, using sample metadata from `public/dev/preview-matrix.js`.
+- The preview matrix and `/dev/share-preview` must remain development-only routes. They should only work for local requests, and tests should cover that non-local hosts get a 404.
 - Higher GitHub API limits require the `GITHUB_TOKEN` Worker secret. Do not store tokens in source files, `wrangler.jsonc`, or committed `.env` files.
 - `wrangler.jsonc` intentionally contains commented examples for KV and production routes. Keep real IDs and route changes deliberate.
 
@@ -72,6 +75,7 @@ Do not deploy unless the user explicitly asks.
 
 - Keep the frontend dependency-free unless there is a strong reason to change that.
 - `public/index.html`, `public/styles.css`, and `public/app.js` are plain static assets served by the Worker assets binding.
+- Shared canvas card rendering lives in `public/preview-card.js`; keep the main studio preview and `/dev/preview-matrix` using that same renderer so design changes stay in sync.
 - The generated social image is a 1200x630 PNG rendered client-side with Canvas. Preserve that size for Open Graph compatibility.
 - Keep controls accessible: labels or `aria-label`s for inputs/buttons, useful status text, keyboard-friendly form behavior, and no text overlap on mobile.
 - Before changing the visual design, check the app at both mobile and desktop widths.
@@ -83,7 +87,8 @@ For most code changes:
 1. Run `npm run check`.
 2. If behavior changed, run `npm run dev` and exercise the affected route or UI.
 3. For Worker/API changes, check relevant endpoints such as `/health`, `/api/inspect?url=...`, `/api/links`, `/s/:slug?preview=1`, and `/img/:slug.png` as applicable.
-4. For frontend changes, verify the page renders, the form can inspect a GitHub URL, the preview updates, and the Canvas image generation path still works.
+4. For preview-card design changes, open `/dev/preview-matrix` locally and verify all supported link types render across all themes.
+5. For frontend changes, verify the page renders, the form can inspect a GitHub URL, the preview updates, and the Canvas image generation path still works.
 
 If a change cannot be verified because KV, secrets, network access, or Cloudflare credentials are unavailable, say that clearly in the final response.
 

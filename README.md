@@ -47,6 +47,7 @@ Human opens /s/:slug
 | `/s/:slug?preview=1` | Force the preview page for manual testing |
 | `/img/:slug.png` | Serve the generated social preview image |
 | `/dev/share-preview` | Local-only saved-share preview without writing a KV link |
+| `/dev/preview-matrix` | Local-only matrix of preview cards by GitHub URL type and theme |
 | `/health` | Basic Worker health check |
 
 ## Run locally
@@ -149,6 +150,16 @@ If your local config includes custom-domain routes for `mygh.site`, Wrangler wil
 6. Deploy with `npx wrangler deploy --config wrangler.local.jsonc`.
 
 Until the domain is active, deploys can still run on the generated `workers.dev` URL. The custom domains will not work until the Hover nameservers point to Cloudflare and Cloudflare finishes activation.
+
+## Preview design checks
+
+When working on the generated social card, run the local dev server and open the preview matrix:
+
+```bash
+npm run dev -- --port 8788
+```
+
+Then visit `http://localhost:8788/dev/preview-matrix`. It shows one supported GitHub link type per row and one visual style per column. The route is for local development only and is blocked on non-local hosts.
 
 ## Good inspiration for
 
