@@ -135,11 +135,13 @@ export function drawPreviewImage(ctx, state, theme, themeName, chips) {
 
   ctx.fillStyle = theme.ink;
   ctx.font = "700 68px Georgia, Times New Roman, serif";
-  wrapText(ctx, state.title, 96, 238, 900, 70, 2);
+  const titleY = 238;
+  const titleLineHeight = 70;
+  const titleLines = Math.max(1, wrapText(ctx, state.title, 96, titleY, 900, titleLineHeight, 2));
 
   ctx.fillStyle = theme.muted;
   ctx.font = "400 29px Avenir Next, Trebuchet MS, sans-serif";
-  wrapText(ctx, state.description, 96, 383, 900, 38, 2);
+  wrapText(ctx, state.description, 96, titleY + titleLines * titleLineHeight + 5, 900, 38, 2);
 
   let chipX = 96;
   if (chips.has("language")) {
@@ -321,6 +323,10 @@ function clipText(ctx, text, maxWidth) {
     return text;
   }
 
+  return ellipsizeText(ctx, text, maxWidth);
+}
+
+function ellipsizeText(ctx, text, maxWidth) {
   let clipped = text;
   while (clipped.length > 1 && ctx.measureText(`${clipped}...`).width > maxWidth) {
     clipped = clipped.slice(0, -1);
@@ -329,26 +335,44 @@ function clipText(ctx, text, maxWidth) {
 }
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
-  const words = text.split(/\s+/);
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (!words.length || maxLines < 1) {
+    return 0;
+  }
+
+  const lines = [];
   let line = "";
-  let lines = 0;
+  let overflow = false;
 
   for (const word of words) {
     const testLine = line ? `${line} ${word}` : word;
     if (ctx.measureText(testLine).width > maxWidth && line) {
-      lines += 1;
-      ctx.fillText(lines === maxLines ? `${line}...` : line, x, y);
-      if (lines >= maxLines) return;
+      lines.push(line);
+      if (lines.length >= maxLines) {
+        overflow = true;
+        break;
+      }
       line = word;
-      y += lineHeight;
     } else {
       line = testLine;
     }
   }
 
-  if (line && lines < maxLines) {
-    ctx.fillText(line, x, y);
+  if (!overflow && line && lines.length < maxLines) {
+    lines.push(line);
+  } else if (overflow && !lines.length && line) {
+    lines.push(line);
   }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const isLastLine = index === lines.length - 1;
+    const visibleLine = isLastLine && overflow
+      ? ellipsizeText(ctx, lines[index], maxWidth)
+      : clipText(ctx, lines[index], maxWidth);
+    ctx.fillText(visibleLine, x, y + index * lineHeight);
+  }
+
+  return lines.length;
 }
 
 function roundRect(ctx, x, y, width, height, radius) {

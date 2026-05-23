@@ -4,6 +4,17 @@ mygh, short for "My GitHub", creates nicer share links for GitHub repositories, 
 
 The user pastes a supported GitHub URL, previews a polished social card, optionally tweaks the copy, then gets a short mygh link. Social crawlers see Open Graph metadata and a generated preview image; normal human clicks redirect to the original GitHub URL.
 
+## Supported GitHub links
+
+mygh accepts public GitHub URLs for:
+
+- Repositories: `https://github.com/owner/repo`
+- Releases: `https://github.com/owner/repo/releases/tag/v1.0.0`
+- Files: `https://github.com/owner/repo/blob/main/path/file.ts`
+- Commits: `https://github.com/owner/repo/commit/sha`
+- Pull requests: `https://github.com/owner/repo/pull/123`
+- Issues: `https://github.com/owner/repo/issues/123`
+
 ## Core flow
 
 ```text
@@ -167,3 +178,9 @@ Then visit `http://localhost:8788/dev/preview-matrix`. It shows one supported Gi
 - Social preview and Open Graph experiments
 - GitHub release announcement tooling
 - Browser-generated images that are stored and served from the edge
+
+## Preview matrix
+
+The local development preview matrix shows every supported link type across the Paper, Mint, and Dusk styles.
+
+![mygh preview image matrix](docs/preview-matrix.jpg)
