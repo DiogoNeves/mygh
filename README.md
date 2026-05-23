@@ -54,6 +54,7 @@ Human opens /s/:slug
 | `/s/:slug` | Return OG HTML for crawlers, redirect humans to GitHub |
 | `/s/:slug?preview=1` | Force the preview page for manual testing |
 | `/img/:slug.png` | Serve the generated social preview image |
+| `/dev/share-preview` | Local-only saved-share preview without writing a KV link |
 | `/health` | Basic Worker health check |
 
 ## Run locally
@@ -95,9 +96,12 @@ Useful smoke checks:
 ```bash
 curl http://localhost:8787/health
 curl "http://localhost:8787/api/inspect?url=https%3A%2F%2Fgithub.com%2Fcloudflare%2Fworkers-sdk"
+curl http://localhost:8787/dev/share-preview
 ```
 
 Replace `8787` with whichever local port Wrangler printed.
+
+Open `/dev/share-preview` on localhost to inspect the saved-share page without creating a link or storing a preview image. The route is blocked on non-local hosts.
 
 In the UI:
 

@@ -102,64 +102,70 @@
             </section>
           </section>
 
-          <section class="preview-section" aria-label="Preview">
-            <div class="section-heading">
-              <h2>Preview</h2>
-              <span id="preview-kind">GitHub</span>
-            </div>
-
-            <div class="preview-frame">
-              <canvas
-                class="preview-card theme-paper"
-                id="preview-card"
-                width="1200"
-                height="630"
-                aria-label="Generated GitHub social preview"
-              ></canvas>
-            </div>
-          </section>
-
-          <aside class="publish-panel" aria-label="Publish link">
-            <button class="save-button" id="create-link" type="button" disabled>Save share link</button>
-            <p class="storage-note">Cloudflare KV stores the card and PNG. The share URL only carries a short slug.</p>
-
-            <section class="result" id="result" hidden>
-              <div class="ready-row">
-                <span class="ready-check" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="m6 12 4 4 8-9"></path>
-                  </svg>
-                </span>
-                <div>
-                  <strong>Your link is ready!</strong>
-                  <p>Share your short link anywhere.</p>
-                </div>
+          <div class="preview-column">
+            <section class="preview-section" aria-label="Preview">
+              <div class="section-heading">
+                <h2>Preview</h2>
+                <span id="preview-kind">GitHub</span>
               </div>
 
-              <label class="sr-only" for="share-url">Share URL</label>
-              <div class="share-box">
-                <input id="share-url" readonly>
-                <button id="copy-link" type="button" aria-label="Copy link">
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M8 8h10v10H8z"></path>
-                    <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                </button>
-              </div>
-
-              <div class="action-list">
-                <a id="preview-link" href="#" target="_blank" rel="noreferrer">
-                  <span>Open preview page</span>
-                  <svg viewBox="0 0 24 24" focusable="false">
-                    <path d="M7 17 17 7M9 7h8v8"></path>
-                  </svg>
-                </a>
+              <div class="preview-frame">
+                <canvas
+                  class="preview-card theme-paper"
+                  id="preview-card"
+                  width="1200"
+                  height="630"
+                  aria-label="Generated GitHub social preview"
+                ></canvas>
               </div>
             </section>
 
-            <p class="status" id="status" role="status"></p>
-          </aside>
+            <aside class="publish-panel" aria-label="Publish link">
+              <button class="save-button" id="create-link" type="button" disabled>Save share link</button>
+              <p class="storage-note">mygh keeps the preview ready behind a short share URL.</p>
+
+              <section class="result" id="result" hidden>
+                <div class="ready-row">
+                  <span class="ready-check" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="m6 12 4 4 8-9"></path>
+                    </svg>
+                  </span>
+                  <div>
+                    <strong>Your link is ready!</strong>
+                    <p>Share your short link anywhere.</p>
+                  </div>
+                </div>
+
+                <label class="sr-only" for="share-url">Share URL</label>
+                <div class="share-box">
+                  <input id="share-url" readonly>
+                  <button id="copy-link" type="button" aria-label="Copy link">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M8 8h10v10H8z"></path>
+                      <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="action-list">
+                  <a id="preview-link" href="#" target="_blank" rel="noreferrer">
+                    <span>Open preview page</span>
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M7 17 17 7M9 7h8v8"></path>
+                    </svg>
+                  </a>
+                </div>
+              </section>
+
+              <p class="status" id="status" role="status"></p>
+            </aside>
+          </div>
         </div>
+
+        <footer class="site-footer">
+          Created by <a href="https://github.com/DiogoNeves" target="_blank" rel="noreferrer">Diogo Neves</a>.
+        </footer>
       </section>
     </main>
 

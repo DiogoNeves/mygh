@@ -245,6 +245,52 @@ test("redirects human share visits but renders escaped Open Graph HTML for crawl
   assert.match(html, /<meta property="og:image" content="https:\/\/mygh\.test\/img\/share123\.png">/);
 });
 
+test("renders dev share preview locally without KV or saved image", async () => {
+  const response = await worker.fetch(
+    new Request("http://localhost:8787/dev/share-preview"),
+    {},
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "text/html; charset=utf-8");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.match(html, /DiogoNeves\/mygh/);
+  assert.match(html, /Development preview of the saved mygh share page/);
+  assert.match(html, /<meta property="og:image" content="\/dev\/share-preview\.svg">/);
+
+  const imageResponse = await worker.fetch(
+    new Request("http://localhost:8787/dev/share-preview.svg"),
+    {},
+  );
+  const svg = await imageResponse.text();
+
+  assert.equal(imageResponse.status, 200);
+  assert.equal(imageResponse.headers.get("content-type"), "image/svg+xml; charset=utf-8");
+  assert.equal(imageResponse.headers.get("cache-control"), "no-store");
+  assert.match(svg, /Saved share page/);
+
+  const routedLocalResponse = await worker.fetch(
+    new Request("http://mygh.site/dev/share-preview", {
+      headers: { "cf-connecting-ip": "::1" },
+    }),
+    {},
+  );
+
+  assert.equal(routedLocalResponse.status, 200);
+});
+
+test("blocks dev share preview on non-local hosts", async () => {
+  const response = await worker.fetch(
+    new Request("https://mygh.test/dev/share-preview"),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(body.error, "Not found.");
+});
+
 test("serves stored PNG images with long-lived cache headers", async () => {
   const kv = new MemoryKv();
   const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);

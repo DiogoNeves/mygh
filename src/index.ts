@@ -67,6 +67,16 @@ export default {
         return await handleCreateLink(request, env);
       }
 
+      if (request.method === "GET" && isDevSharePreviewPath(url.pathname)) {
+        if (!isLocalDevelopmentRequest(request)) {
+          throw new HttpError(404, "Not found.");
+        }
+        if (url.pathname === "/dev/share-preview") {
+          return handleDevSharePreview(request);
+        }
+        return handleDevSharePreviewImage();
+      }
+
       const imageMatch = url.pathname.match(/^\/img\/([a-zA-Z0-9_-]+)\.png$/);
       if (request.method === "GET" && imageMatch) {
         return await handleImage(imageMatch[1], env);
@@ -150,6 +160,78 @@ async function handleCreateLink(request: Request, env: Env): Promise<Response> {
     },
     201,
   );
+}
+
+function handleDevSharePreview(request: Request): Response {
+  const baseUrl = getBaseUrl(request);
+  return new Response(
+    renderShareHtml(
+      devShareRecord(),
+      baseUrl,
+      "/dev/share-preview.svg",
+    ),
+    {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    },
+  );
+}
+
+function handleDevSharePreviewImage(): Response {
+  return new Response(renderDevSharePreviewSvg(), {
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+}
+
+function devShareRecord(): LinkRecord {
+  return {
+    version: 1,
+    type: "repo",
+    owner: "DiogoNeves",
+    repo: "mygh",
+    fullName: "DiogoNeves/mygh",
+    githubUrl: "https://github.com/DiogoNeves/mygh",
+    title: "DiogoNeves/mygh",
+    description:
+      "Development preview of the saved mygh share page, rendered without creating a stored link.",
+    language: "TypeScript",
+    stars: 128,
+    forks: 12,
+    openIssues: 3,
+    slug: "dev-share-preview",
+    createdAt: "2026-05-23T00:00:00.000Z",
+    sharePath: "/dev/share-preview",
+    theme: "paper",
+  };
+}
+
+function renderDevSharePreviewSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="mygh development social preview">
+  <rect width="1200" height="630" fill="#fbfdfb"/>
+  <path d="M0 0h1200v630H0z" fill="none" stroke="#cbd5d0"/>
+  <path d="M0 0h400l-98 630H0z" fill="#dfff55" opacity="0.28"/>
+  <g stroke="#d7dfda" stroke-width="1">
+    <path d="M0 48h1200M0 96h1200M0 144h1200M0 192h1200M0 240h1200M0 288h1200M0 336h1200M0 384h1200M0 432h1200M0 480h1200M0 528h1200M0 576h1200"/>
+    <path d="M48 0v630M96 0v630M144 0v630M192 0v630M240 0v630M288 0v630M336 0v630M384 0v630M432 0v630M480 0v630M528 0v630M576 0v630M624 0v630M672 0v630M720 0v630M768 0v630M816 0v630M864 0v630M912 0v630M960 0v630M1008 0v630M1056 0v630M1104 0v630M1152 0v630"/>
+  </g>
+  <rect x="70" y="70" width="1060" height="490" rx="16" fill="#ffffff" stroke="#cbd5d0"/>
+  <rect x="100" y="105" width="48" height="48" rx="12" fill="#141616"/>
+  <text x="124" y="136" fill="#ffffff" font-family="monospace" font-size="16" font-weight="800" text-anchor="middle">GH</text>
+  <text x="168" y="136" fill="#141616" font-family="monospace" font-size="30" font-weight="800">DiogoNeves/mygh</text>
+  <text x="1070" y="136" fill="#f05a3f" font-family="Georgia, serif" font-size="30" font-weight="700" text-anchor="end">mygh</text>
+  <text x="100" y="260" fill="#141616" font-family="Georgia, serif" font-size="70" font-weight="700">Saved share page</text>
+  <text x="100" y="342" fill="#141616" font-family="Georgia, serif" font-size="70" font-weight="700">development preview</text>
+  <text x="100" y="420" fill="#626b68" font-family="Avenir Next, Segoe UI, sans-serif" font-size="28">Rendered locally without creating a stored link.</text>
+  <rect x="100" y="468" width="160" height="48" rx="8" fill="#f2f6f3" stroke="#cbd5d0"/>
+  <text x="180" y="499" fill="#626b68" font-family="monospace" font-size="20" font-weight="800" text-anchor="middle">Repository</text>
+  <rect x="278" y="468" width="118" height="48" rx="8" fill="#f2f6f3" stroke="#cbd5d0"/>
+  <text x="337" y="499" fill="#626b68" font-family="monospace" font-size="20" font-weight="800" text-anchor="middle">128 stars</text>
+</svg>`;
 }
 
 async function handleImage(slug: string, env: Env): Promise<Response> {
@@ -317,9 +399,12 @@ async function githubFetch(url: string, env: Env): Promise<Record<string, any>> 
   return response.json();
 }
 
-function renderShareHtml(record: LinkRecord, baseUrl: string): string {
+function renderShareHtml(
+  record: LinkRecord,
+  baseUrl: string,
+  imageUrl = `${baseUrl}/img/${record.slug}.png`,
+): string {
   const shareUrl = `${baseUrl}${record.sharePath}`;
-  const imageUrl = `${baseUrl}/img/${record.slug}.png`;
   const typeLabel = record.type === "release" ? "GitHub release" : "GitHub repository";
   const escapedTitle = escapeHtml(record.title);
   const escapedDescription = escapeHtml(record.description);
@@ -348,125 +433,213 @@ function renderShareHtml(record: LinkRecord, baseUrl: string): string {
     <meta name="twitter:description" content="${escapedDescription}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
 
-    <style>
-      * { box-sizing: border-box; }
-      body {
-        align-items: center;
-        background:
-          radial-gradient(circle at top left, rgba(36, 88, 255, 0.08), transparent 30%),
-          #f7f8fb;
-        color: #0b1220;
-        display: grid;
-        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        margin: 0;
-        min-height: 100vh;
-        padding: 18px;
-      }
-      main {
-        background: #ffffff;
-        border: 1px solid #e3e7ef;
-        border-radius: 8px;
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.10);
-        margin: auto;
-        max-width: 430px;
-        overflow: hidden;
-        padding: 32px 20px 0;
-        width: 100%;
-      }
-      .brand {
-        align-items: center;
-        display: flex;
-        font-size: 20px;
-        font-weight: 850;
-        gap: 10px;
-        margin-bottom: 46px;
-      }
-      .brand-mark {
-        align-items: center;
-        background: linear-gradient(145deg, #2458ff, #1f6fff);
-        border-radius: 8px;
-        color: #ffffff;
-        display: inline-flex;
-        height: 34px;
-        justify-content: center;
-        width: 34px;
-      }
-      .brand span:last-child span {
-        color: #2458ff;
-      }
-      .ready {
-        align-items: center;
-        display: grid;
-        gap: 13px;
-        grid-template-columns: auto minmax(0, 1fr);
-        margin-bottom: 20px;
-      }
-      .check {
-        align-items: center;
-        background: rgba(53, 180, 119, 0.15);
-        border-radius: 999px;
-        color: #35b477;
-        display: inline-flex;
-        font-size: 22px;
-        height: 40px;
-        justify-content: center;
-        width: 40px;
-      }
-      h1 {
-        font-size: 16px;
-        line-height: 1.25;
-        margin: 0 0 4px;
-      }
-      p {
-        color: #687083;
-        font-size: 14px;
-        margin: 0;
-      }
-      img {
-        border: 1px solid #e3e7ef;
-        border-radius: 8px;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-        display: block;
-        height: auto;
-        margin: 24px 0;
-        max-width: 100%;
-      }
-      .actions {
-        border: 1px solid #e3e7ef;
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      a {
-        align-items: center;
-        color: #0b1220;
-        display: flex;
-        font-size: 14px;
-        font-weight: 760;
-        justify-content: space-between;
-        min-height: 54px;
-        padding: 0 16px;
-        text-decoration: none;
-      }
-      .footer {
-        border-top: 1px solid #e3e7ef;
-        color: #687083;
-        font-size: 13px;
-        margin: 32px -20px 0;
-        min-height: 72px;
-        display: grid;
-        place-items: center;
-      }
-      .footer strong { color: #2458ff; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <div class="brand">
-        <span class="brand-mark">my</span>
-        <span>my<span>gh</span></span>
-      </div>
-      <div class="ready">
-        <span class="check">&#10003;</span>
+	    <style>
+	      :root {
+	        --page: #e8edf0;
+	        --surface: #fbfdfb;
+	        --surface-2: #f2f6f3;
+	        --ink: #141616;
+	        --muted: #626b68;
+	        --line: #cbd5d0;
+	        --line-strong: #9eaaa5;
+	        --press: #0d1010;
+	        --accent: #f05a3f;
+	        --accent-2: #dfff55;
+	        --green: #2f9b73;
+	        --shadow: 0 28px 80px rgba(20, 22, 22, 0.16);
+	        --soft-shadow: 0 16px 42px rgba(20, 22, 22, 0.10);
+	        --font-body: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+	        --font-display: Georgia, "Times New Roman", serif;
+	        --font-mono: "SFMono-Regular", "Cascadia Mono", "Liberation Mono", monospace;
+	      }
+	      * {
+	        box-sizing: border-box;
+	        letter-spacing: 0;
+	      }
+	      body {
+	        background:
+	          linear-gradient(120deg, rgba(251, 253, 251, 0.96) 0 31%, rgba(223, 255, 85, 0.24) 31% 36%, transparent 36%),
+	          repeating-linear-gradient(0deg, rgba(20, 22, 22, 0.08) 0 1px, transparent 1px 56px),
+	          repeating-linear-gradient(90deg, rgba(20, 22, 22, 0.06) 0 1px, transparent 1px 56px),
+	          var(--page);
+	        color: var(--ink);
+	        display: grid;
+	        font-family: var(--font-body);
+	        line-height: 1.45;
+	        margin: 0;
+	        min-height: 100vh;
+	        padding: 28px;
+	      }
+	      body::before {
+	        background:
+	          linear-gradient(90deg, rgba(20, 22, 22, 0.08), transparent 18%),
+	          linear-gradient(180deg, rgba(255, 255, 255, 0.44), transparent 34%);
+	        content: "";
+	        inset: 0;
+	        pointer-events: none;
+	        position: fixed;
+	      }
+	      main {
+	        background: rgba(251, 253, 251, 0.88);
+	        border: 1px solid rgba(158, 170, 165, 0.7);
+	        border-radius: 8px;
+	        box-shadow: var(--shadow);
+	        margin: auto;
+	        max-width: 760px;
+	        overflow: hidden;
+	        padding: 22px;
+	        position: relative;
+	        width: min(100%, 760px);
+	      }
+	      main::before {
+	        background:
+	          linear-gradient(90deg, rgba(20, 22, 22, 0.07) 1px, transparent 1px),
+	          linear-gradient(0deg, rgba(20, 22, 22, 0.05) 1px, transparent 1px);
+	        background-size: 28px 28px;
+	        content: "";
+	        inset: 0;
+	        opacity: 0.55;
+	        pointer-events: none;
+	        position: absolute;
+	      }
+	      main > * {
+	        position: relative;
+	      }
+	      .brand {
+	        align-items: center;
+	        border-bottom: 1px solid var(--line);
+	        display: flex;
+	        gap: 12px;
+	        margin-bottom: 22px;
+	        min-height: 58px;
+	        padding-bottom: 16px;
+	      }
+	      .brand-mark {
+	        align-items: center;
+	        background: linear-gradient(135deg, var(--press) 0 62%, var(--accent) 62% 100%);
+	        border: 1px solid var(--press);
+	        border-radius: 8px;
+	        box-shadow: 6px 6px 0 var(--accent-2);
+	        color: #ffffff;
+	        display: inline-flex;
+	        font-family: var(--font-mono);
+	        font-size: 12px;
+	        font-weight: 900;
+	        height: 38px;
+	        justify-content: center;
+	        width: 38px;
+	      }
+	      .brand-name {
+	        font-family: var(--font-display);
+	        font-size: 24px;
+	        font-weight: 700;
+	      }
+	      .brand-name span {
+	        color: var(--accent);
+	      }
+	      .ready {
+	        align-items: center;
+	        background: rgba(251, 253, 251, 0.82);
+	        border: 1px solid var(--line);
+	        border-radius: 8px;
+	        box-shadow: var(--soft-shadow);
+	        display: grid;
+	        gap: 14px;
+	        grid-template-columns: auto minmax(0, 1fr);
+	        margin-bottom: 18px;
+	        padding: 18px;
+	      }
+	      .check {
+	        align-items: center;
+	        background: rgba(47, 155, 115, 0.15);
+	        border-radius: 999px;
+	        color: var(--green);
+	        display: inline-flex;
+	        font-size: 22px;
+	        height: 40px;
+	        justify-content: center;
+	        width: 40px;
+	      }
+	      h1 {
+	        font-family: var(--font-display);
+	        font-size: clamp(26px, 4vw, 38px);
+	        line-height: 1.04;
+	        margin: 0 0 8px;
+	      }
+	      p {
+	        color: var(--muted);
+	        font-size: 15px;
+	        margin: 0;
+	      }
+	      img {
+	        aspect-ratio: 1200 / 630;
+	        background: var(--surface);
+	        border: 1px solid var(--line-strong);
+	        border-radius: 8px;
+	        box-shadow: 18px 18px 0 rgba(20, 22, 22, 0.08), var(--soft-shadow);
+	        display: block;
+	        height: auto;
+	        margin: 0 0 24px;
+	        max-width: 100%;
+	        width: 100%;
+	      }
+	      .actions {
+	        background: #ffffff;
+	        border: 1px solid var(--line);
+	        border-radius: 8px;
+	        overflow: hidden;
+	      }
+	      a {
+	        align-items: center;
+	        color: var(--ink);
+	        display: flex;
+	        font-size: 15px;
+	        font-weight: 850;
+	        justify-content: space-between;
+	        min-height: 56px;
+	        padding: 0 16px;
+	        text-decoration: none;
+	      }
+	      a:hover {
+	        background: var(--surface-2);
+	      }
+	      .footer {
+	        border-top: 1px solid var(--line);
+	        color: var(--muted);
+	        font-family: var(--font-mono);
+	        font-size: 12px;
+	        margin-top: 26px;
+	        padding-top: 16px;
+	        text-align: center;
+	      }
+	      .footer strong {
+	        color: var(--accent);
+	      }
+	      @media (max-width: 520px) {
+	        body {
+	          padding: 0;
+	        }
+	        main {
+	          border: 0;
+	          border-radius: 0;
+	          box-shadow: none;
+	          min-height: 100vh;
+	          padding: 16px;
+	        }
+	        .ready {
+	          padding: 14px;
+	        }
+	      }
+	    </style>
+	  </head>
+	  <body>
+	    <main>
+	      <div class="brand">
+	        <span class="brand-mark">my</span>
+	        <span class="brand-name">my<span>gh</span></span>
+	      </div>
+	      <div class="ready">
+	        <span class="check">&#10003;</span>
         <div>
           <h1>Your link is ready!</h1>
           <p>${escapeHtml(typeLabel)} preview by mygh.</p>
@@ -542,6 +715,45 @@ function isCrawler(request: Request): boolean {
     "embedly",
     "skypeuripreview",
   ].some((needle) => userAgent.includes(needle));
+}
+
+function isDevSharePreviewPath(pathname: string): boolean {
+  return pathname === "/dev/share-preview" || pathname === "/dev/share-preview.svg";
+}
+
+function isLocalDevelopmentRequest(request: Request): boolean {
+  const hostname = new URL(request.url).hostname;
+  const hostHeader = request.headers.get("host");
+  const connectingIp = request.headers.get("cf-connecting-ip") || "";
+  return [hostname, hostHeader ? hostHeaderHostname(hostHeader) : ""].some(
+    isLocalHostname,
+  ) || isLocalIp(connectingIp);
+}
+
+function hostHeaderHostname(hostHeader: string): string {
+  const host = hostHeader.trim();
+  if (host.startsWith("[")) {
+    const bracketIndex = host.indexOf("]");
+    return bracketIndex === -1 ? host : host.slice(0, bracketIndex + 1);
+  }
+  return host.split(":")[0];
+}
+
+function isLocalHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized === "127.0.0.1" ||
+    normalized === "0.0.0.0" ||
+    normalized === "[::1]" ||
+    normalized === "::1"
+  );
+}
+
+function isLocalIp(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return normalized === "127.0.0.1" || normalized === "::1";
 }
 
 function isSafeGithubPathPart(value: string): boolean {

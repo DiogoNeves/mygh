@@ -343,7 +343,7 @@ function drawPreviewImage(ctx, state, theme, themeName, chips) {
 
   ctx.save();
   ctx.globalAlpha = themeName === "dusk" ? 0.34 : 0.28;
-  ctx.fillStyle = theme.accent;
+  ctx.fillStyle = theme.secondary;
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(400, 0);

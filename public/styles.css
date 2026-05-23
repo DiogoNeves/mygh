@@ -181,6 +181,32 @@ svg {
   max-width: 1530px;
 }
 
+.site-footer {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin: 26px auto 0;
+  max-width: 1530px;
+  padding-top: 16px;
+}
+
+.site-footer a {
+  color: var(--ink);
+  font-weight: 850;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.site-footer a:hover {
+  color: var(--accent);
+}
+
+.preview-column {
+  display: contents;
+}
+
 .control-panel,
 .publish-panel {
   background: rgba(251, 253, 251, 0.82);
@@ -547,7 +573,7 @@ svg {
 
 .theme-dusk {
   background:
-    linear-gradient(135deg, rgba(240, 90, 63, 0.24) 0 26%, transparent 26%),
+    linear-gradient(135deg, rgba(23, 167, 182, 0.24) 0 26%, transparent 26%),
     linear-gradient(90deg, rgba(226, 255, 90, 0.12) 1px, transparent 1px),
     linear-gradient(0deg, rgba(23, 167, 182, 0.15) 1px, transparent 1px),
     #111817;
@@ -702,8 +728,14 @@ a:focus-visible,
     grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
   }
 
+  .preview-column {
+    align-content: start;
+    display: grid;
+    gap: 20px;
+    min-width: 0;
+  }
+
   .publish-panel {
-    grid-column: 1 / -1;
     position: static;
   }
 }
@@ -772,10 +804,6 @@ a:focus-visible,
   }
 
   .appearance {
-    grid-template-columns: 1fr;
-  }
-
-  .chip-controls {
     grid-template-columns: 1fr;
   }
 
