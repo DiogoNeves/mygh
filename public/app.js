@@ -27,15 +27,16 @@ const PREVIEW_WIDTH = 1200;
 const PREVIEW_HEIGHT = 630;
 
 const fallbackMetadata = Object.freeze({
-  type: "repository",
+  type: "repo",
   fullName: "owner/repo",
   owner: "owner",
   repo: "repo",
-  title: "Paste a GitHub repo or release URL",
+  title: "Paste a GitHub link worth sharing",
   description: "mygh creates an unfurl-friendly link that redirects back to GitHub.",
-  language: "Repository",
+  language: "GitHub",
   stars: 0,
   forks: 0,
+  openIssues: 0,
 });
 
 const themes = {
@@ -45,7 +46,7 @@ const themes = {
     border: "#cbd5d0",
     ink: "#141616",
     muted: "#626b68",
-    accent: "#f05a3f",
+    accent: "#116a50",
     secondary: "#dfff55",
     chip: "#f2f6f3",
     mark: "#0d1010",
@@ -67,7 +68,7 @@ const themes = {
     border: "#45615f",
     ink: "#f6faf8",
     muted: "#a8bab5",
-    accent: "#f05a3f",
+    accent: "#dfff55",
     secondary: "#17a7b6",
     chip: "#20302e",
     mark: "#060909",
@@ -152,7 +153,7 @@ async function inspectUrl({ force = false } = {}) {
   const githubUrl = normalizeGithubUrl(urlInput.value);
   if (!githubUrl) {
     if (force) {
-      setStatus("Enter a GitHub repository or release URL.");
+      setStatus("Enter a supported GitHub URL.");
     }
     return false;
   }
@@ -301,34 +302,191 @@ function normalizeGithubUrl(value) {
 
 function previewState() {
   const metadata = currentMetadata || fallbackMetadata;
-  const type = metadata.type === "release" ? "release" : "repository";
+  const type = metadata.type || "repo";
   const title = currentMetadata
     ? titleInput.value || metadata.title
     : fallbackMetadata.title;
   const description = currentMetadata
     ? descriptionInput.value || metadata.description
     : fallbackMetadata.description;
-  const extra = !currentMetadata
-    ? "Ready"
-    : type === "release"
-      ? metadata.releaseTag || "Release"
-      : `${formatNumber(metadata.forks)} forks`;
+  const typeLabel = currentMetadata ? typeLabelFor(type) : "GitHub";
 
   return {
     ...metadata,
     type,
+    typeLabel,
     title,
     description,
-    extra,
-    kindLabel: currentMetadata
-      ? type === "release"
-        ? "Release"
-        : "Repository"
-      : "GitHub",
-    language: metadata.language || (currentMetadata ? "Source" : "Repository"),
-    monogram: (metadata.repo || metadata.owner || "G").slice(0, 1).toUpperCase(),
-    starsLabel: `${formatNumber(metadata.stars)} stars`,
+    badge: badgeFor(type),
+    detailText: detailTextFor(type, metadata, currentMetadata),
+    extra: extraLabelFor(type, metadata, currentMetadata),
+    kindLabel: typeLabel,
+    language: firstChipFor(type, metadata, currentMetadata),
+    metricLabel: metricLabelFor(type, metadata, currentMetadata),
   };
+}
+
+function typeLabelFor(type) {
+  return {
+    repo: "Repository",
+    release: "Release",
+    file: "File",
+    commit: "Commit",
+    pull: "Pull request",
+    issue: "Issue",
+  }[type] || "GitHub";
+}
+
+function badgeFor(type) {
+  return {
+    repo: "GH",
+    release: "v",
+    file: "</>",
+    commit: "SHA",
+    pull: "PR",
+    issue: "#",
+  }[type] || "GH";
+}
+
+function firstChipFor(type, metadata, hasMetadata) {
+  if (!hasMetadata) {
+    return "GitHub";
+  }
+  if (type === "file") {
+    return metadata.language || "File";
+  }
+  return typeLabelFor(type);
+}
+
+function metricLabelFor(type, metadata, hasMetadata) {
+  if (!hasMetadata) {
+    return "Ready";
+  }
+  if (type === "file") {
+    return formatBytes(metadata.fileSize);
+  }
+  if (type === "commit" || type === "pull") {
+    return pluralize(metadata.changedFiles, "file");
+  }
+  if (type === "issue") {
+    return pluralize(metadata.comments, "comment");
+  }
+  return `${formatNumber(metadata.stars)} stars`;
+}
+
+function extraLabelFor(type, metadata, hasMetadata) {
+  if (!hasMetadata) {
+    return "Preview";
+  }
+  if (type === "release") {
+    return metadata.releaseTag || "Release";
+  }
+  if (type === "file") {
+    return metadata.lineRange || shortRef(metadata.ref) || "File";
+  }
+  if (type === "commit") {
+    return diffLabel(metadata.additions, metadata.deletions);
+  }
+  if (type === "pull" || type === "issue") {
+    return stateLabel(metadata.state);
+  }
+  return `${formatNumber(metadata.forks)} forks`;
+}
+
+function detailTextFor(type, metadata, hasMetadata) {
+  if (!hasMetadata) {
+    return "Repository, release, file, commit, PR, or issue";
+  }
+  if (type === "release") {
+    return [metadata.releaseTag, pluralize(metadata.assetsCount, "asset")]
+      .filter(Boolean)
+      .join(" / ");
+  }
+  if (type === "file") {
+    return [metadata.filePath, metadata.lineRange, shortRef(metadata.ref)]
+      .filter(Boolean)
+      .join(" / ");
+  }
+  if (type === "commit") {
+    return [shortSha(metadata.commitSha), metadata.commitAuthor, diffLabel(metadata.additions, metadata.deletions)]
+      .filter(Boolean)
+      .join(" / ");
+  }
+  if (type === "pull") {
+    return [
+      stateLabel(metadata.state),
+      metadata.author ? `by ${metadata.author}` : "",
+      pluralize(metadata.comments, "comment"),
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }
+  if (type === "issue") {
+    const labels = Array.isArray(metadata.labels) && metadata.labels.length
+      ? metadata.labels.join(", ")
+      : "";
+    return [
+      stateLabel(metadata.state),
+      metadata.author ? `by ${metadata.author}` : "",
+      labels,
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }
+  return [metadata.language, pluralize(metadata.openIssues, "issue")]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function pluralize(value, noun) {
+  const number = Number(value || 0);
+  return `${formatNumber(number)} ${noun}${number === 1 ? "" : "s"}`;
+}
+
+function formatBytes(value) {
+  const number = Number(value || 0);
+  if (!number) {
+    return "0 bytes";
+  }
+  if (number < 1024) {
+    return `${number} bytes`;
+  }
+  const units = ["KB", "MB", "GB"];
+  let size = number / 1024;
+  let unit = units[0];
+  for (let index = 1; index < units.length && size >= 1024; index += 1) {
+    size /= 1024;
+    unit = units[index];
+  }
+  return `${size.toFixed(size >= 10 ? 0 : 1)} ${unit}`;
+}
+
+function shortRef(value) {
+  if (!value) {
+    return "";
+  }
+  return value.length > 18 ? `${value.slice(0, 15)}...` : value;
+}
+
+function shortSha(value) {
+  if (!value) {
+    return "";
+  }
+  return value.slice(0, 7);
+}
+
+function diffLabel(additions, deletions) {
+  const plus = Number(additions || 0);
+  const minus = Number(deletions || 0);
+  if (!plus && !minus) {
+    return "No diff";
+  }
+  return `+${formatNumber(plus)} -${formatNumber(minus)}`;
+}
+
+function stateLabel(value) {
+  const label = (value || "open").toString();
+  return `${label[0].toUpperCase()}${label.slice(1)}`;
 }
 
 function renderCanvas() {
@@ -370,46 +528,69 @@ function drawPreviewImage(ctx, state, theme, themeName, chips) {
   roundRect(ctx, 96, 91, 56, 56, 16);
   ctx.fill();
   ctx.fillStyle = "#ffffff";
-  ctx.font = "900 17px Avenir Next, Trebuchet MS, sans-serif";
-  ctx.fillText("GH", 111, 126);
+  ctx.font = state.badge.length > 2
+    ? "900 14px Avenir Next, Trebuchet MS, sans-serif"
+    : "900 18px Avenir Next, Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(state.badge, 124, 119);
+  ctx.textAlign = "start";
+  ctx.textBaseline = "alphabetic";
 
   ctx.fillStyle = theme.ink;
   ctx.font = "800 30px SFMono-Regular, Cascadia Mono, monospace";
   ctx.fillText(clipText(ctx, state.fullName, 620), 174, 127);
 
+  ctx.save();
   ctx.fillStyle = theme.accent;
   ctx.font = "700 32px Georgia, Times New Roman, serif";
-  ctx.fillText("mygh", 1042, 128);
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText("mygh", 1104, 92);
+  ctx.restore();
 
   ctx.fillStyle = theme.ink;
   ctx.font = "700 68px Georgia, Times New Roman, serif";
-  wrapText(ctx, state.title, 96, 258, 690, 75, 2);
+  wrapText(ctx, state.title, 96, 238, 900, 70, 2);
 
   ctx.fillStyle = theme.muted;
   ctx.font = "400 29px Avenir Next, Trebuchet MS, sans-serif";
-  wrapText(ctx, state.description, 96, 416, 720, 42, 2);
+  wrapText(ctx, state.description, 96, 383, 900, 38, 2);
 
-  ctx.fillStyle = themeName === "dusk" ? "#060909" : "#f2f6f3";
-  roundRect(ctx, 868, 226, 202, 202, 16);
-  ctx.fill();
-  ctx.strokeStyle = theme.border;
-  ctx.stroke();
-  ctx.fillStyle = theme.ink;
-  ctx.font = "700 126px Georgia, Times New Roman, serif";
-  ctx.textAlign = "center";
-  ctx.fillText(state.monogram, 969, 370);
-  ctx.textAlign = "start";
+  drawDetailPanel(ctx, state, 96, 454, 900, 40, theme);
 
   let chipX = 96;
   if (chips.has("language")) {
-    chipX += drawChip(ctx, state.language, chipX, 510, theme) + 14;
+    chipX += drawChip(ctx, state.language, chipX, 520, theme) + 14;
   }
   if (chips.has("stars")) {
-    chipX += drawChip(ctx, state.starsLabel, chipX, 510, theme) + 14;
+    chipX += drawChip(ctx, state.metricLabel, chipX, 520, theme) + 14;
   }
   if (chips.has("extra")) {
-    drawChip(ctx, state.extra, chipX, 510, theme);
+    drawChip(ctx, state.extra, chipX, 520, theme);
   }
+}
+
+function drawDetailPanel(ctx, state, x, y, width, height, theme) {
+  ctx.fillStyle = theme.chip;
+  roundRect(ctx, x, y, width, height, 9);
+  ctx.fill();
+  ctx.strokeStyle = theme.border;
+  ctx.stroke();
+
+  ctx.font = "900 17px SFMono-Regular, Cascadia Mono, monospace";
+  ctx.fillStyle = theme.accent;
+  const label = state.typeLabel.toUpperCase();
+  ctx.fillText(label, x + 15, y + 26);
+
+  const labelWidth = Math.min(ctx.measureText(label).width + 34, 210);
+  ctx.fillStyle = theme.muted;
+  ctx.font = "800 17px SFMono-Regular, Cascadia Mono, monospace";
+  ctx.fillText(
+    clipText(ctx, state.detailText, width - labelWidth - 24),
+    x + labelWidth,
+    y + 26,
+  );
 }
 
 function drawChip(ctx, text, x, y, theme) {

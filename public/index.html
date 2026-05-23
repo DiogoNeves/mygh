@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>mygh</title>
-    <meta name="description" content="Create better social preview links for GitHub repositories and releases.">
+    <meta name="description" content="Create better social preview links for GitHub repositories, releases, files, commits, pull requests, and issues.">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
@@ -39,7 +39,7 @@
                   id="github-url"
                   name="github-url"
                   type="url"
-                  placeholder="https://github.com/owner/repo/releases/tag/v1.2.3"
+                  placeholder="https://github.com/owner/repo/pull/123"
                   autocomplete="off"
                   required
                 >
@@ -57,7 +57,7 @@
               <input id="card-title" maxlength="90" placeholder="Paste a GitHub link first">
 
               <label for="card-description">Description</label>
-              <textarea id="card-description" maxlength="220" rows="4" placeholder="Release notes or repository summary"></textarea>
+              <textarea id="card-description" maxlength="220" rows="4" placeholder="Repository, file, issue, PR, or commit summary"></textarea>
 
               <fieldset class="appearance">
                 <legend>Appearance</legend>
@@ -87,16 +87,19 @@
               <fieldset class="chip-controls">
                 <legend>Info chips</legend>
                 <label>
-                  <input type="checkbox" name="info-chip" value="language" checked>
-                  <span>Kind</span>
+                  <input type="checkbox" name="info-chip" value="language" checked aria-describedby="kind-chip-tip">
+                  <span class="chip-label">Kind</span>
+                  <span class="chip-tooltip" id="kind-chip-tip" role="tooltip">Shows the item type, or file language for file links.</span>
                 </label>
                 <label>
-                  <input type="checkbox" name="info-chip" value="stars" checked>
-                  <span>Stars</span>
+                  <input type="checkbox" name="info-chip" value="stars" checked aria-describedby="metric-chip-tip">
+                  <span class="chip-label">Metric</span>
+                  <span class="chip-tooltip" id="metric-chip-tip" role="tooltip">Shows stars, file size, changed files, or comment count.</span>
                 </label>
                 <label>
-                  <input type="checkbox" name="info-chip" value="extra" checked>
-                  <span>Extra</span>
+                  <input type="checkbox" name="info-chip" value="extra" checked aria-describedby="extra-chip-tip">
+                  <span class="chip-label">Extra</span>
+                  <span class="chip-tooltip" id="extra-chip-tip" role="tooltip">Shows forks, release tag, line/ref, diff, or issue/PR state.</span>
                 </label>
               </fieldset>
             </section>

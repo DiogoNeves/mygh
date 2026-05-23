@@ -96,6 +96,72 @@ const releasePayload = {
   assets: [{ name: "app.zip" }, { name: "checksums.txt" }],
 };
 
+const filePayload = {
+  type: "file",
+  name: "index.ts",
+  path: "src/index.ts",
+  sha: "abc123def456",
+  size: 2345,
+  html_url: "https://github.com/octocat/Hello-World/blob/main/src/index.ts",
+};
+
+const commitPayload = {
+  sha: "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+  html_url:
+    "https://github.com/octocat/Hello-World/commit/6dcb09b5b57875f334f61aebed695e2e4193db5e",
+  commit: {
+    message: "Fix all the bugs\n\nAdds the missing tests.",
+    author: {
+      name: "Monalisa Octocat",
+      date: "2026-05-22T12:00:00Z",
+    },
+  },
+  author: {
+    login: "octocat",
+  },
+  stats: {
+    additions: 104,
+    deletions: 4,
+  },
+  files: [{ filename: "src/index.ts" }, { filename: "tests/worker.test.js" }],
+};
+
+const pullPayload = {
+  number: 42,
+  title: "Add better cards",
+  body: "<!-- template note -->\nAdds support for **pull requests**.",
+  html_url: "https://github.com/octocat/Hello-World/pull/42",
+  state: "open",
+  draft: false,
+  merged_at: null,
+  user: {
+    login: "octocat",
+  },
+  comments: 3,
+  review_comments: 2,
+  additions: 30,
+  deletions: 8,
+  changed_files: 4,
+};
+
+const issuePayload = {
+  number: 7,
+  title: "Make cards clearer",
+  body: "The card should explain the linked item.",
+  html_url: "https://github.com/octocat/Hello-World/issues/7",
+  state: "closed",
+  user: {
+    login: "monalisa",
+  },
+  comments: 5,
+  labels: [
+    { name: "design" },
+    { name: "good first issue" },
+    { name: "frontend" },
+    { name: "later" },
+  ],
+};
+
 function linkRecord(overrides = {}) {
   return {
     version: 1,
@@ -158,7 +224,7 @@ test("inspects latest release URLs with cleaned metadata and GitHub auth headers
   assert.equal(response.status, 200);
   assert.equal(body.target.type, "release");
   assert.equal(body.metadata.githubUrl, releasePayload.html_url);
-  assert.equal(body.metadata.title, "octocat/Hello-World Launch");
+  assert.equal(body.metadata.title, "Launch");
   assert.equal(body.metadata.description, "Ships code and release notes.");
   assert.equal(body.metadata.assetsCount, 2);
 
@@ -166,6 +232,119 @@ test("inspects latest release URLs with cleaned metadata and GitHub auth headers
   assert.equal(repoHeaders.get("authorization"), "Bearer secret-token");
   assert.equal(repoHeaders.get("accept"), "application/vnd.github+json");
   assert.equal(repoHeaders.get("user-agent"), "mygh");
+});
+
+test("inspects GitHub file URLs with path, ref, and line metadata", async (t) => {
+  installGithubMock(t, [
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World",
+      body: repoPayload(),
+    },
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World/contents/src/index.ts?ref=main",
+      body: filePayload,
+    },
+  ]);
+
+  const response = await worker.fetch(
+    new Request("https://mygh.test/api/inspect?url=https%3A%2F%2Fgithub.com%2Foctocat%2FHello-World%2Fblob%2Fmain%2Fsrc%2Findex.ts%23L12-L18"),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.target.type, "file");
+  assert.equal(body.target.ref, "main");
+  assert.equal(body.target.path, "src/index.ts");
+  assert.equal(body.target.lineRange, "L12-L18");
+  assert.equal(body.metadata.type, "file");
+  assert.equal(body.metadata.githubUrl, "https://github.com/octocat/Hello-World/blob/main/src/index.ts#L12-L18");
+  assert.equal(body.metadata.title, "src/index.ts");
+  assert.equal(body.metadata.language, "TypeScript");
+  assert.equal(body.metadata.fileSize, 2345);
+});
+
+test("inspects GitHub commit URLs with diff metadata", async (t) => {
+  installGithubMock(t, [
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World",
+      body: repoPayload(),
+    },
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World/commits/6dcb09b5b57875f334f61aebed695e2e4193db5e",
+      body: commitPayload,
+    },
+  ]);
+
+  const response = await worker.fetch(
+    new Request("https://mygh.test/api/inspect?url=https%3A%2F%2Fgithub.com%2Foctocat%2FHello-World%2Fcommit%2F6dcb09b5b57875f334f61aebed695e2e4193db5e"),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.target.type, "commit");
+  assert.equal(body.metadata.title, "Fix all the bugs");
+  assert.equal(body.metadata.commitAuthor, "octocat");
+  assert.equal(body.metadata.changedFiles, 2);
+  assert.equal(body.metadata.additions, 104);
+  assert.equal(body.metadata.deletions, 4);
+});
+
+test("inspects GitHub pull request URLs with state and review metadata", async (t) => {
+  installGithubMock(t, [
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World",
+      body: repoPayload(),
+    },
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World/pulls/42",
+      body: pullPayload,
+    },
+  ]);
+
+  const response = await worker.fetch(
+    new Request("https://mygh.test/api/inspect?url=https%3A%2F%2Fgithub.com%2Foctocat%2FHello-World%2Fpull%2F42"),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.target.type, "pull");
+  assert.equal(body.target.number, 42);
+  assert.equal(body.metadata.title, "#42 Add better cards");
+  assert.equal(body.metadata.description, "Adds support for pull requests.");
+  assert.equal(body.metadata.state, "open");
+  assert.equal(body.metadata.author, "octocat");
+  assert.equal(body.metadata.comments, 5);
+  assert.equal(body.metadata.changedFiles, 4);
+});
+
+test("inspects GitHub issue URLs with labels and comments", async (t) => {
+  installGithubMock(t, [
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World",
+      body: repoPayload(),
+    },
+    {
+      url: "https://api.github.com/repos/octocat/Hello-World/issues/7",
+      body: issuePayload,
+    },
+  ]);
+
+  const response = await worker.fetch(
+    new Request("https://mygh.test/api/inspect?url=https%3A%2F%2Fgithub.com%2Foctocat%2FHello-World%2Fissues%2F7"),
+    {},
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.target.type, "issue");
+  assert.equal(body.target.number, 7);
+  assert.equal(body.metadata.title, "#7 Make cards clearer");
+  assert.equal(body.metadata.state, "closed");
+  assert.deepEqual(body.metadata.labels, ["design", "good first issue", "frontend"]);
+  assert.equal(body.metadata.comments, 5);
 });
 
 test("creates share links by storing sanitized metadata and PNG bytes in KV", async (t) => {
@@ -243,6 +422,10 @@ test("redirects human share visits but renders escaped Open Graph HTML for crawl
   assert.match(html, /A&amp;B &#039;desc&#039; &lt;tag&gt;/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
   assert.match(html, /<meta property="og:image" content="https:\/\/mygh\.test\/img\/share123\.png">/);
+  assert.match(html, /<label for="share-url">Share link<\/label>/);
+  assert.match(html, /<input id="share-url" value="https:\/\/mygh\.test\/s\/share123" data-share-path="\/s\/share123" readonly>/);
+  assert.match(html, /id="copy-share-link"/);
+  assert.match(html, /Social media preview/);
 });
 
 test("renders dev share preview locally without KV or saved image", async () => {
@@ -258,6 +441,7 @@ test("renders dev share preview locally without KV or saved image", async () => 
   assert.match(html, /DiogoNeves\/mygh/);
   assert.match(html, /Development preview of the saved mygh share page/);
   assert.match(html, /<meta property="og:image" content="\/dev\/share-preview\.svg">/);
+  assert.match(html, /<input id="share-url" value="http:\/\/localhost:8787\/dev\/share-preview" data-share-path="\/dev\/share-preview" readonly>/);
 
   const imageResponse = await worker.fetch(
     new Request("http://localhost:8787/dev/share-preview.svg"),

@@ -4,13 +4,18 @@ interface Env {
   GITHUB_TOKEN?: string;
 }
 
-type TargetType = "repo" | "release";
+type TargetType = "repo" | "release" | "file" | "commit" | "pull" | "issue";
 
 interface GithubTarget {
   type: TargetType;
   owner: string;
   repo: string;
   tag?: string;
+  ref?: string;
+  path?: string;
+  lineRange?: string;
+  sha?: string;
+  number?: number;
   requestedUrl: string;
 }
 
@@ -31,6 +36,25 @@ interface PreviewMetadata {
   releaseName?: string;
   publishedAt?: string;
   assetsCount?: number;
+  ref?: string;
+  filePath?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileSha?: string;
+  lineRange?: string;
+  commitSha?: string;
+  commitAuthor?: string;
+  committedAt?: string;
+  changedFiles?: number;
+  additions?: number;
+  deletions?: number;
+  number?: number;
+  state?: string;
+  author?: string;
+  comments?: number;
+  labels?: string[];
+  draft?: boolean;
+  mergedAt?: string;
 }
 
 interface LinkRecord extends PreviewMetadata {
@@ -223,7 +247,7 @@ function renderDevSharePreviewSvg(): string {
   <rect x="100" y="105" width="48" height="48" rx="12" fill="#141616"/>
   <text x="124" y="136" fill="#ffffff" font-family="monospace" font-size="16" font-weight="800" text-anchor="middle">GH</text>
   <text x="168" y="136" fill="#141616" font-family="monospace" font-size="30" font-weight="800">DiogoNeves/mygh</text>
-  <text x="1070" y="136" fill="#f05a3f" font-family="Georgia, serif" font-size="30" font-weight="700" text-anchor="end">mygh</text>
+  <text x="1070" y="136" fill="#116a50" font-family="Georgia, serif" font-size="30" font-weight="700" text-anchor="end">mygh</text>
   <text x="100" y="260" fill="#141616" font-family="Georgia, serif" font-size="70" font-weight="700">Saved share page</text>
   <text x="100" y="342" fill="#141616" font-family="Georgia, serif" font-size="70" font-weight="700">development preview</text>
   <text x="100" y="420" fill="#626b68" font-family="Avenir Next, Segoe UI, sans-serif" font-size="28">Rendered locally without creating a stored link.</text>
@@ -290,7 +314,7 @@ function parseGithubUrl(rawUrl: string): GithubTarget {
 
   const parts = parsed.pathname.split("/").filter(Boolean);
   if (parts.length < 2) {
-    throw new HttpError(400, "Enter a GitHub repository or release URL.");
+    throw new HttpError(400, "Enter a supported GitHub URL.");
   }
 
   const owner = decodePathPart(parts[0]);
@@ -318,6 +342,52 @@ function parseGithubUrl(rawUrl: string): GithubTarget {
     };
   }
 
+  if (parts[2] === "blob" && parts.length >= 5) {
+    const fileParts = parts.slice(3).map(decodePathPart);
+    const ref = cleanGithubPathValue(fileParts[0], "file ref");
+    const path = cleanGithubPathValue(fileParts.slice(1).join("/"), "file path");
+    return {
+      type: "file",
+      owner,
+      repo,
+      ref,
+      path,
+      lineRange: parseLineRange(parsed.hash),
+      requestedUrl: rawUrl,
+    };
+  }
+
+  if (parts[2] === "commit" && parts[3]) {
+    const sha = cleanGithubPathValue(decodePathPart(parts[3]), "commit SHA");
+    return {
+      type: "commit",
+      owner,
+      repo,
+      sha,
+      requestedUrl: rawUrl,
+    };
+  }
+
+  if ((parts[2] === "pull" || parts[2] === "pulls") && parts[3]) {
+    return {
+      type: "pull",
+      owner,
+      repo,
+      number: parseGithubNumber(parts[3], "pull request"),
+      requestedUrl: rawUrl,
+    };
+  }
+
+  if ((parts[2] === "issue" || parts[2] === "issues") && parts[3]) {
+    return {
+      type: "issue",
+      owner,
+      repo,
+      number: parseGithubNumber(parts[3], "issue"),
+      requestedUrl: rawUrl,
+    };
+  }
+
   return { type: "repo", owner, repo, requestedUrl: rawUrl };
 }
 
@@ -325,10 +395,7 @@ async function fetchGithubMetadata(
   target: GithubTarget,
   env: Env,
 ): Promise<PreviewMetadata> {
-  const repo = await githubFetch(
-    `https://api.github.com/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}`,
-    env,
-  );
+  const repo = await fetchGithubRepo(target, env);
 
   const base: PreviewMetadata = {
     type: target.type,
@@ -336,7 +403,7 @@ async function fetchGithubMetadata(
     repo: repo.name,
     fullName: repo.full_name,
     githubUrl: repo.html_url,
-    title: repo.full_name,
+    title: repo.name,
     description: truncate(cleanText(repo.description || "A GitHub repository."), 220),
     language: repo.language || undefined,
     stars: Number(repo.stargazers_count || 0),
@@ -349,6 +416,41 @@ async function fetchGithubMetadata(
     return base;
   }
 
+  if (target.type === "release") {
+    return await fetchReleaseMetadata(target, repo, base, env);
+  }
+
+  if (target.type === "file") {
+    return await fetchFileMetadata(target, repo, base, env);
+  }
+
+  if (target.type === "commit") {
+    return await fetchCommitMetadata(target, repo, base, env);
+  }
+
+  if (target.type === "pull") {
+    return await fetchPullMetadata(target, repo, base, env);
+  }
+
+  return await fetchIssueMetadata(target, repo, base, env);
+}
+
+async function fetchGithubRepo(
+  target: Pick<GithubTarget, "owner" | "repo">,
+  env: Env,
+): Promise<Record<string, any>> {
+  return githubFetch(
+    `https://api.github.com/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}`,
+    env,
+  );
+}
+
+async function fetchReleaseMetadata(
+  target: GithubTarget,
+  repo: Record<string, any>,
+  base: PreviewMetadata,
+  env: Env,
+): Promise<PreviewMetadata> {
   const releasePath = target.tag
     ? `releases/tags/${encodeURIComponent(target.tag)}`
     : "releases/latest";
@@ -365,7 +467,7 @@ async function fetchGithubMetadata(
   return {
     ...base,
     githubUrl: release.html_url,
-    title: `${repo.full_name} ${releaseTitle}`,
+    title: releaseTitle,
     description: releaseDescription,
     releaseTag: release.tag_name,
     releaseName: release.name || undefined,
@@ -374,7 +476,184 @@ async function fetchGithubMetadata(
   };
 }
 
-async function githubFetch(url: string, env: Env): Promise<Record<string, any>> {
+async function fetchFileMetadata(
+  target: GithubTarget,
+  repo: Record<string, any>,
+  base: PreviewMetadata,
+  env: Env,
+): Promise<PreviewMetadata> {
+  if (!target.ref || !target.path) {
+    throw new HttpError(400, "Enter a GitHub file URL.");
+  }
+
+  const file = await fetchGithubFileContent(target, env);
+  if (Array.isArray(file) || file.type !== "file") {
+    throw new HttpError(400, "Enter a GitHub file URL, not a directory.");
+  }
+
+  const filePath = cleanText(String(file.path || target.path));
+  const fileName = cleanText(String(file.name || filePath.split("/").pop() || "File"));
+  const language = detectLanguage(filePath) || repo.language || "File";
+  const size = Number(file.size || 0);
+  const lineNote = target.lineRange ? ` at ${target.lineRange}` : "";
+
+  return {
+    ...base,
+    githubUrl: withLineRange(file.html_url || target.requestedUrl, target.lineRange),
+    title: filePath,
+    description: truncate(`${fileName}${lineNote} in ${repo.full_name}.`, 220),
+    language,
+    ref: target.ref,
+    filePath,
+    fileName,
+    fileSize: Number.isFinite(size) ? size : undefined,
+    fileSha: file.sha || undefined,
+    lineRange: target.lineRange,
+  };
+}
+
+async function fetchCommitMetadata(
+  target: GithubTarget,
+  repo: Record<string, any>,
+  base: PreviewMetadata,
+  env: Env,
+): Promise<PreviewMetadata> {
+  if (!target.sha) {
+    throw new HttpError(400, "Enter a GitHub commit URL.");
+  }
+
+  const commit = await githubFetch(
+    `https://api.github.com/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}/commits/${encodeURIComponent(target.sha)}`,
+    env,
+  );
+  const rawMessage = String(commit.commit?.message || "GitHub commit.");
+  const title = cleanText(firstSentenceOrLine(rawMessage));
+  const sha = String(commit.sha || target.sha);
+  const author =
+    commit.author?.login ||
+    commit.commit?.author?.name ||
+    commit.commit?.committer?.name ||
+    undefined;
+  const changedFiles = Array.isArray(commit.files) ? commit.files.length : undefined;
+
+  return {
+    ...base,
+    githubUrl: commit.html_url || target.requestedUrl,
+    title,
+    description: truncate(
+      `${shortSha(sha)} in ${repo.full_name}${author ? ` by ${author}` : ""}.`,
+      220,
+    ),
+    language: "Commit",
+    commitSha: sha,
+    commitAuthor: author,
+    committedAt: commit.commit?.author?.date || commit.commit?.committer?.date || undefined,
+    additions: numberOrUndefined(commit.stats?.additions),
+    deletions: numberOrUndefined(commit.stats?.deletions),
+    changedFiles,
+  };
+}
+
+async function fetchPullMetadata(
+  target: GithubTarget,
+  repo: Record<string, any>,
+  base: PreviewMetadata,
+  env: Env,
+): Promise<PreviewMetadata> {
+  const number = requireGithubNumber(target.number, "pull request");
+  const pull = await githubFetch(
+    `https://api.github.com/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}/pulls/${number}`,
+    env,
+  );
+  const state = pull.merged_at ? "merged" : pull.draft ? "draft" : String(pull.state || "open");
+  const title = `#${number} ${cleanText(String(pull.title || "Pull request"))}`;
+  const fallbackDescription = `${capitalize(state)} pull request in ${repo.full_name}.`;
+
+  return {
+    ...base,
+    githubUrl: pull.html_url || target.requestedUrl,
+    title: truncate(title, 90),
+    description: truncate(cleanBodyOrFallback(pull.body, fallbackDescription), 220),
+    language: "Pull request",
+    number,
+    state,
+    author: pull.user?.login || undefined,
+    comments: numberOrUndefined((pull.comments || 0) + (pull.review_comments || 0)),
+    additions: numberOrUndefined(pull.additions),
+    deletions: numberOrUndefined(pull.deletions),
+    changedFiles: numberOrUndefined(pull.changed_files),
+    draft: Boolean(pull.draft),
+    mergedAt: pull.merged_at || undefined,
+  };
+}
+
+async function fetchIssueMetadata(
+  target: GithubTarget,
+  repo: Record<string, any>,
+  base: PreviewMetadata,
+  env: Env,
+): Promise<PreviewMetadata> {
+  const number = requireGithubNumber(target.number, "issue");
+  const issue = await githubFetch(
+    `https://api.github.com/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}/issues/${number}`,
+    env,
+  );
+  const state = String(issue.state || "open");
+  const title = `#${number} ${cleanText(String(issue.title || "Issue"))}`;
+  const labels = Array.isArray(issue.labels)
+    ? issue.labels
+        .map((label: Record<string, any>) => cleanText(String(label.name || "")))
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  return {
+    ...base,
+    githubUrl: issue.html_url || target.requestedUrl,
+    title: truncate(title, 90),
+    description: truncate(
+      cleanText(issue.body || `${capitalize(state)} issue in ${repo.full_name}.`),
+      220,
+    ),
+    language: "Issue",
+    number,
+    state,
+    author: issue.user?.login || undefined,
+    comments: numberOrUndefined(issue.comments),
+    labels,
+  };
+}
+
+async function fetchGithubFileContent(
+  target: GithubTarget,
+  env: Env,
+): Promise<Record<string, any> | Record<string, any>[]> {
+  const parts = [target.ref || "", ...(target.path || "").split("/")].filter(Boolean);
+  let lastNotFound: unknown;
+
+  for (let splitIndex = 1; splitIndex < parts.length; splitIndex += 1) {
+    const ref = parts.slice(0, splitIndex).join("/");
+    const path = parts.slice(splitIndex).join("/");
+    try {
+      const file = await githubFetch(
+        `https://api.github.com/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}/contents/${encodeGithubPath(path)}?ref=${encodeURIComponent(ref)}`,
+        env,
+      );
+      target.ref = ref;
+      target.path = path;
+      return file;
+    } catch (error) {
+      if (!isHttpStatus(error, 404)) {
+        throw error;
+      }
+      lastNotFound = error;
+    }
+  }
+
+  throw lastNotFound || new HttpError(404, "GitHub file not found.");
+}
+
+async function githubFetch(url: string, env: Env): Promise<any> {
   const headers = new Headers({
     accept: "application/vnd.github+json",
     "user-agent": "mygh",
@@ -388,7 +667,7 @@ async function githubFetch(url: string, env: Env): Promise<Record<string, any>> 
   const response = await fetch(url, { headers });
   if (!response.ok) {
     if (response.status === 404) {
-      throw new HttpError(404, "GitHub repository or release not found.");
+      throw new HttpError(404, "GitHub target not found.");
     }
     if (response.status === 403) {
       throw new HttpError(502, "GitHub rate limit reached. Try again later.");
@@ -405,9 +684,11 @@ function renderShareHtml(
   imageUrl = `${baseUrl}/img/${record.slug}.png`,
 ): string {
   const shareUrl = `${baseUrl}${record.sharePath}`;
-  const typeLabel = record.type === "release" ? "GitHub release" : "GitHub repository";
+  const typeLabel = githubTypeLabel(record.type);
   const escapedTitle = escapeHtml(record.title);
   const escapedDescription = escapeHtml(record.description);
+  const escapedShareUrl = escapeHtml(shareUrl);
+  const escapedSharePath = escapeHtml(record.sharePath);
 
   return `<!doctype html>
 <html lang="en">
@@ -443,7 +724,7 @@ function renderShareHtml(
 	        --line: #cbd5d0;
 	        --line-strong: #9eaaa5;
 	        --press: #0d1010;
-	        --accent: #f05a3f;
+	        --accent: #116a50;
 	        --accent-2: #dfff55;
 	        --green: #2f9b73;
 	        --shadow: 0 28px 80px rgba(20, 22, 22, 0.16);
@@ -571,6 +852,65 @@ function renderShareHtml(
 	        font-size: 15px;
 	        margin: 0;
 	      }
+	      label,
+	      .preview-label {
+	        color: var(--ink);
+	        display: block;
+	        font-size: 14px;
+	        font-weight: 850;
+	        margin: 0 0 8px;
+	      }
+	      .share-panel {
+	        background: rgba(251, 253, 251, 0.82);
+	        border: 1px solid var(--line);
+	        border-radius: 8px;
+	        box-shadow: var(--soft-shadow);
+	        display: grid;
+	        gap: 10px;
+	        margin-bottom: 18px;
+	        padding: 18px;
+	      }
+	      .share-row {
+	        align-items: center;
+	        background: #ffffff;
+	        border: 1px solid var(--line-strong);
+	        border-radius: 8px;
+	        display: grid;
+	        gap: 12px;
+	        grid-template-columns: minmax(0, 1fr) auto;
+	        min-height: 60px;
+	        padding: 9px 9px 9px 12px;
+	      }
+	      .share-row input {
+	        background: transparent;
+	        border: 0;
+	        color: var(--accent);
+	        font: 800 13px var(--font-mono);
+	        min-width: 0;
+	        outline: 0;
+	        width: 100%;
+	      }
+	      .share-row button {
+	        background: var(--press);
+	        border: 1px solid var(--press);
+	        border-radius: 8px;
+	        color: #ffffff;
+	        font: 850 13px var(--font-body);
+	        min-height: 42px;
+	        padding: 0 16px;
+	      }
+	      .share-row button:hover {
+	        background: #252828;
+	      }
+	      .copy-status {
+	        color: var(--muted);
+	        font-family: var(--font-mono);
+	        font-size: 12px;
+	        min-height: 17px;
+	      }
+	      .preview-block {
+	        margin-bottom: 24px;
+	      }
 	      img {
 	        aspect-ratio: 1200 / 630;
 	        background: var(--surface);
@@ -579,7 +919,7 @@ function renderShareHtml(
 	        box-shadow: 18px 18px 0 rgba(20, 22, 22, 0.08), var(--soft-shadow);
 	        display: block;
 	        height: auto;
-	        margin: 0 0 24px;
+	        margin: 0;
 	        max-width: 100%;
 	        width: 100%;
 	      }
@@ -629,6 +969,12 @@ function renderShareHtml(
 	        .ready {
 	          padding: 14px;
 	        }
+	        .share-panel {
+	          padding: 14px;
+	        }
+	        .share-row {
+	          grid-template-columns: 1fr;
+	        }
 	      }
 	    </style>
 	  </head>
@@ -641,21 +987,69 @@ function renderShareHtml(
 	      <div class="ready">
 	        <span class="check">&#10003;</span>
         <div>
-          <h1>Your link is ready!</h1>
-          <p>${escapeHtml(typeLabel)} preview by mygh.</p>
-        </div>
-      </div>
-      <img src="${escapeHtml(imageUrl)}" alt="${escapedTitle}">
-      <div class="actions">
-        <a href="${escapeHtml(record.githubUrl)}">
-          <span>Open on GitHub</span>
+	          <h1>Your link is ready!</h1>
+	          <p>${escapeHtml(typeLabel)} preview by mygh.</p>
+	        </div>
+	      </div>
+	      <div class="share-panel">
+	        <label for="share-url">Share link</label>
+	        <div class="share-row">
+	          <input id="share-url" value="${escapedShareUrl}" data-share-path="${escapedSharePath}" readonly>
+	          <button id="copy-share-link" type="button">Copy</button>
+	        </div>
+	        <p class="copy-status" id="copy-status" role="status"></p>
+	      </div>
+	      <div class="preview-block">
+	        <p class="preview-label">Social media preview</p>
+	        <img src="${escapeHtml(imageUrl)}" alt="${escapedTitle}">
+	      </div>
+	      <div class="actions">
+	        <a href="${escapeHtml(record.githubUrl)}">
+	          <span>Open on GitHub</span>
           <span>&#8599;</span>
         </a>
-      </div>
-      <div class="footer">Served by <strong>mygh</strong></div>
-    </main>
-  </body>
-</html>`;
+	      </div>
+	      <div class="footer">Served by <strong>mygh</strong></div>
+	    </main>
+	    <script>
+	      (() => {
+	        const input = document.querySelector("#share-url");
+	        const button = document.querySelector("#copy-share-link");
+	        const status = document.querySelector("#copy-status");
+	        if (!input || !button) return;
+
+	        const sharePath = input.dataset.sharePath;
+	        if (sharePath) {
+	          input.value = new URL(sharePath, window.location.href).href;
+	        }
+
+	        const showCopied = () => {
+	          button.textContent = "Copied";
+	          if (status) status.textContent = "Copied.";
+	          window.setTimeout(() => {
+	            button.textContent = "Copy";
+	            if (status) status.textContent = "";
+	          }, 1600);
+	        };
+
+	        button.addEventListener("click", async () => {
+	          try {
+	            await navigator.clipboard.writeText(input.value);
+	            showCopied();
+	          } catch {
+	            input.focus();
+	            input.select();
+	            if (document.execCommand && document.execCommand("copy")) {
+	              showCopied();
+	            } else if (status) {
+	              status.textContent = "Copy the selected link.";
+	            }
+	          }
+	        });
+	      })();
+	    </script>
+	  </body>
+	</html>`;
 }
 
 function requireKv(env: Env): KVNamespace {
@@ -756,8 +1150,36 @@ function isLocalIp(value: string): boolean {
   return normalized === "127.0.0.1" || normalized === "::1";
 }
 
+function parseGithubNumber(value: string, label: string): number {
+  const decoded = decodePathPart(value);
+  const number = Number(decoded);
+  if (!Number.isInteger(number) || number <= 0) {
+    throw new HttpError(400, `Enter a valid GitHub ${label} number.`);
+  }
+  return number;
+}
+
+function requireGithubNumber(value: number | undefined, label: string): number {
+  if (!Number.isInteger(value) || !value || value <= 0) {
+    throw new HttpError(400, `Enter a valid GitHub ${label} number.`);
+  }
+  return value;
+}
+
 function isSafeGithubPathPart(value: string): boolean {
   return /^[A-Za-z0-9_.-]+$/.test(value);
+}
+
+function cleanGithubPathValue(value: string, label: string): string {
+  const trimmed = value.trim();
+  if (
+    trimmed.length === 0 ||
+    trimmed.length > 500 ||
+    /[\u0000-\u001f\u007f]/.test(trimmed)
+  ) {
+    throw new HttpError(400, `Unsupported GitHub ${label}.`);
+  }
+  return trimmed;
 }
 
 function decodePathPart(value: string): string {
@@ -768,13 +1190,121 @@ function decodePathPart(value: string): string {
   }
 }
 
+function parseLineRange(hash: string): string | undefined {
+  const match = hash.match(/^#L(\d+)(?:-L(\d+))?$/i);
+  if (!match) {
+    return undefined;
+  }
+  return match[2] ? `L${match[1]}-L${match[2]}` : `L${match[1]}`;
+}
+
+function encodeGithubPath(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function isHttpStatus(error: unknown, status: number): boolean {
+  return error instanceof HttpError && error.status === status;
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
+function firstSentenceOrLine(value: string): string {
+  return value.split(/\r?\n/)[0]?.trim() || value;
+}
+
+function shortSha(value: string): string {
+  return value.slice(0, 7);
+}
+
+function capitalize(value: string): string {
+  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
+}
+
+function detectLanguage(path: string): string | undefined {
+  const extension = path.split(".").pop()?.toLowerCase();
+  const languageByExtension: Record<string, string> = {
+    c: "C",
+    cc: "C++",
+    cpp: "C++",
+    cs: "C#",
+    css: "CSS",
+    go: "Go",
+    html: "HTML",
+    java: "Java",
+    js: "JavaScript",
+    json: "JSON",
+    jsx: "JSX",
+    md: "Markdown",
+    mjs: "JavaScript",
+    php: "PHP",
+    py: "Python",
+    rb: "Ruby",
+    rs: "Rust",
+    sh: "Shell",
+    swift: "Swift",
+    ts: "TypeScript",
+    tsx: "TSX",
+    txt: "Text",
+    vue: "Vue",
+    yaml: "YAML",
+    yml: "YAML",
+  };
+  return extension ? languageByExtension[extension] : undefined;
+}
+
+function githubTypeLabel(type: TargetType): string {
+  const labels: Record<TargetType, string> = {
+    repo: "GitHub repository",
+    release: "GitHub release",
+    file: "GitHub file",
+    commit: "GitHub commit",
+    pull: "GitHub pull request",
+    issue: "GitHub issue",
+  };
+  return labels[type];
+}
+
+function withLineRange(url: string, lineRange: string | undefined): string {
+  if (!lineRange) {
+    return url;
+  }
+  try {
+    const parsed = new URL(url);
+    parsed.hash = lineRange;
+    return parsed.href;
+  } catch {
+    return url;
+  }
+}
+
 function cleanOverride(value: string | undefined, fallback: string, maxLength: number): string {
   const cleaned = cleanText(value || fallback);
   return truncate(cleaned, maxLength);
 }
 
+function cleanBodyOrFallback(value: string | undefined, fallback: string): string {
+  const cleaned = cleanText(value || "");
+  if (!cleaned || looksLikeEmptyGithubTemplate(cleaned)) {
+    return fallback;
+  }
+  return cleaned;
+}
+
+function looksLikeEmptyGithubTemplate(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return (
+    normalized.startsWith("why: closes: what's being changed") ||
+    normalized.startsWith("why: closes: check off the following")
+  );
+}
+
 function cleanText(value: string): string {
   return value
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/[`*_>#]/g, "")
     .replace(/\s+/g, " ")

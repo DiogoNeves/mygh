@@ -8,15 +8,15 @@
 
 ## What it does
 
-mygh, short for "My GitHub", creates nicer share links for GitHub repositories and releases.
+mygh, short for "My GitHub", creates nicer share links for GitHub repositories, releases, files, commits, pull requests, and issues.
 
-The user pastes a GitHub repo or release URL, previews a polished social card, optionally tweaks the copy, then gets a short mygh link. Social crawlers see Open Graph metadata and a generated preview image; normal human clicks redirect to the original GitHub URL.
+The user pastes a supported GitHub URL, previews a polished social card, optionally tweaks the copy, then gets a short mygh link. Social crawlers see Open Graph metadata and a generated preview image; normal human clicks redirect to the original GitHub URL.
 
 ## Core flow
 
 ```text
 User pastes GitHub URL
-  -> app fetches public GitHub repo/release metadata
+  -> app fetches public GitHub metadata for the URL type
   -> browser renders a 1200x630 PNG card
   -> Worker stores metadata + PNG in Cloudflare KV
   -> user shares /s/:slug
@@ -25,7 +25,7 @@ Social crawler opens /s/:slug
   -> Worker returns HTML with og:title, og:description, og:image
 
 Human opens /s/:slug
-  -> Worker redirects to the original GitHub repo or release
+  -> Worker redirects to the original GitHub target
 ```
 
 ## Tech stack
@@ -35,7 +35,7 @@ Human opens /s/:slug
 - Frontend: static HTML, CSS, and browser JavaScript
 - Language: TypeScript for the Worker
 - Tooling: Wrangler, TypeScript
-- External APIs: GitHub REST API for public repository and release metadata
+- External APIs: GitHub REST API for public repository, release, file, commit, pull request, and issue metadata
 
 ## Why this shape
 
@@ -73,7 +73,7 @@ If that port is busy, pick another one:
 npm run dev -- --port 8788
 ```
 
-Open the local URL in a browser and paste a public GitHub repository or release URL.
+Open the local URL in a browser and paste a public GitHub repository, release, file, commit, pull request, or issue URL.
 The inspect/preview flow works as long as the Worker can reach the public GitHub API.
 The save/share flow requires the `MYGH_LINKS` KV binding.
 
@@ -107,7 +107,7 @@ In the UI:
 
 1. Paste a GitHub URL such as `https://github.com/cloudflare/workers-sdk`.
 2. Click **Preview link**.
-3. Confirm the preview card fills with repo or release metadata.
+3. Confirm the preview card fills with metadata for that GitHub URL type.
 4. Click **Save share link**.
 5. Confirm a share URL appears and the preview link opens.
 
