@@ -82,6 +82,10 @@ function repoPayload(overrides = {}) {
     stargazers_count: 12345,
     forks_count: 67,
     open_issues_count: 8,
+    license: {
+      name: "MIT License",
+      spdx_id: "MIT",
+    },
     ...overrides,
   };
 }
@@ -177,6 +181,8 @@ function linkRecord(overrides = {}) {
     forks: 67,
     openIssues: 8,
     ownerAvatarUrl: "https://avatars.githubusercontent.com/u/583231",
+    licenseName: "MIT License",
+    licenseSpdxId: "MIT",
     slug: "share123",
     createdAt: "2026-05-23T00:00:00.000Z",
     sharePath: "/s/share123",
@@ -380,6 +386,7 @@ test("creates share links by storing sanitized metadata and PNG bytes in KV", as
   assert.equal(storedRecord.title, "Custom title");
   assert.equal(storedRecord.description, "Read the docs before shipping.");
   assert.equal(storedRecord.theme, "paper");
+  assert.equal(storedRecord.licenseSpdxId, "MIT");
   assert.deepEqual([...storedImage], [...pngBytes]);
   assert.deepEqual(kv.metadata.get(`link:${slug}`), {
     githubUrl: "https://github.com/octocat/Hello-World",

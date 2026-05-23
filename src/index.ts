@@ -1271,6 +1271,22 @@ function githubTypeLabel(type: TargetType): string {
   return labels[type];
 }
 
+function cleanLicenseValue(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const cleaned = cleanText(value);
+  return cleaned || undefined;
+}
+
+function cleanLicenseSpdxId(value: unknown): string | undefined {
+  const cleaned = cleanLicenseValue(value);
+  if (!cleaned || cleaned === "NOASSERTION") {
+    return undefined;
+  }
+  return cleaned;
+}
+
 function withLineRange(url: string, lineRange: string | undefined): string {
   if (!lineRange) {
     return url;

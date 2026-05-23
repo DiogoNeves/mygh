@@ -318,7 +318,6 @@ function previewState() {
     title,
     description,
     badge: badgeFor(type),
-    detailText: detailTextFor(type, metadata, currentMetadata),
     extra: extraLabelFor(type, metadata, currentMetadata),
     kindLabel: typeLabel,
     language: firstChipFor(type, metadata, currentMetadata),
@@ -390,52 +389,7 @@ function extraLabelFor(type, metadata, hasMetadata) {
   if (type === "pull" || type === "issue") {
     return stateLabel(metadata.state);
   }
-  return `${formatNumber(metadata.forks)} forks`;
-}
-
-function detailTextFor(type, metadata, hasMetadata) {
-  if (!hasMetadata) {
-    return "Repository, release, file, commit, PR, or issue";
-  }
-  if (type === "release") {
-    return [metadata.releaseTag, pluralize(metadata.assetsCount, "asset")]
-      .filter(Boolean)
-      .join(" / ");
-  }
-  if (type === "file") {
-    return [metadata.filePath, metadata.lineRange, shortRef(metadata.ref)]
-      .filter(Boolean)
-      .join(" / ");
-  }
-  if (type === "commit") {
-    return [shortSha(metadata.commitSha), metadata.commitAuthor, diffLabel(metadata.additions, metadata.deletions)]
-      .filter(Boolean)
-      .join(" / ");
-  }
-  if (type === "pull") {
-    return [
-      stateLabel(metadata.state),
-      metadata.author ? `by ${metadata.author}` : "",
-      pluralize(metadata.comments, "comment"),
-    ]
-      .filter(Boolean)
-      .join(" / ");
-  }
-  if (type === "issue") {
-    const labels = Array.isArray(metadata.labels) && metadata.labels.length
-      ? metadata.labels.join(", ")
-      : "";
-    return [
-      stateLabel(metadata.state),
-      metadata.author ? `by ${metadata.author}` : "",
-      labels,
-    ]
-      .filter(Boolean)
-      .join(" / ");
-  }
-  return [metadata.language, pluralize(metadata.openIssues, "issue")]
-    .filter(Boolean)
-    .join(" / ");
+  return licenseLabel(metadata) || "No license";
 }
 
 function pluralize(value, noun) {
@@ -473,6 +427,10 @@ function shortSha(value) {
     return "";
   }
   return value.slice(0, 7);
+}
+
+function licenseLabel(metadata) {
+  return metadata.licenseSpdxId || metadata.licenseName || "";
 }
 
 function diffLabel(additions, deletions) {
@@ -557,40 +515,16 @@ function drawPreviewImage(ctx, state, theme, themeName, chips) {
   ctx.font = "400 29px Avenir Next, Trebuchet MS, sans-serif";
   wrapText(ctx, state.description, 96, 383, 900, 38, 2);
 
-  drawDetailPanel(ctx, state, 96, 454, 900, 40, theme);
-
   let chipX = 96;
   if (chips.has("language")) {
-    chipX += drawChip(ctx, state.language, chipX, 520, theme) + 14;
+    chipX += drawChip(ctx, state.language, chipX, 500, theme) + 14;
   }
   if (chips.has("stars")) {
-    chipX += drawChip(ctx, state.metricLabel, chipX, 520, theme) + 14;
+    chipX += drawChip(ctx, state.metricLabel, chipX, 500, theme) + 14;
   }
   if (chips.has("extra")) {
-    drawChip(ctx, state.extra, chipX, 520, theme);
+    drawChip(ctx, state.extra, chipX, 500, theme);
   }
-}
-
-function drawDetailPanel(ctx, state, x, y, width, height, theme) {
-  ctx.fillStyle = theme.chip;
-  roundRect(ctx, x, y, width, height, 9);
-  ctx.fill();
-  ctx.strokeStyle = theme.border;
-  ctx.stroke();
-
-  ctx.font = "900 17px SFMono-Regular, Cascadia Mono, monospace";
-  ctx.fillStyle = theme.accent;
-  const label = state.typeLabel.toUpperCase();
-  ctx.fillText(label, x + 15, y + 26);
-
-  const labelWidth = Math.min(ctx.measureText(label).width + 34, 210);
-  ctx.fillStyle = theme.muted;
-  ctx.font = "800 17px SFMono-Regular, Cascadia Mono, monospace";
-  ctx.fillText(
-    clipText(ctx, state.detailText, width - labelWidth - 24),
-    x + labelWidth,
-    y + 26,
-  );
 }
 
 function drawChip(ctx, text, x, y, theme) {
