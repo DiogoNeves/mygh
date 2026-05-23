@@ -14,6 +14,7 @@ const previewLink = document.querySelector("#preview-link");
 const previewCard = document.querySelector("#preview-card");
 const previewContext = previewCard.getContext("2d");
 const previewKind = document.querySelector("#preview-kind");
+const previewSection = document.querySelector(".preview-section");
 
 let currentMetadata = null;
 let activeInspectId = 0;
@@ -201,12 +202,20 @@ function applyMetadata(githubUrl, metadata) {
   isApplyingMetadata = true;
   urlInput.value = githubUrl;
   if (!hasEditedTitle) {
-    titleInput.value = metadata.title;
+    titleInput.value = fieldValue(titleInput, metadata.title);
   }
   if (!hasEditedDescription) {
-    descriptionInput.value = metadata.description;
+    descriptionInput.value = fieldValue(descriptionInput, metadata.description);
   }
   isApplyingMetadata = false;
+}
+
+function fieldValue(field, value) {
+  const maxLength = field.maxLength;
+  if (maxLength > 0 && value.length > maxLength) {
+    return `${value.slice(0, maxLength - 3).trimEnd()}...`;
+  }
+  return value;
 }
 
 async function createShareLink() {
@@ -249,6 +258,7 @@ function renderPreview() {
   const state = previewState();
 
   previewCard.className = `preview-card theme-${themeName}`;
+  previewSection.dataset.theme = themeName;
   previewKind.textContent = state.kindLabel;
   previewCard.setAttribute(
     "aria-label",

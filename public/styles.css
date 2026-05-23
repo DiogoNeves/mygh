@@ -488,14 +488,49 @@ svg {
 .preview-section {
   align-content: start;
   align-self: stretch;
+  background:
+    linear-gradient(135deg, var(--preview-wash) 0 25%, transparent 25%),
+    linear-gradient(90deg, var(--preview-grid-x) 1px, transparent 1px),
+    linear-gradient(0deg, var(--preview-grid-y) 1px, transparent 1px),
+    var(--preview-surface);
+  background-size: auto, 28px 28px, 28px 28px;
+  border: 1px solid var(--preview-line);
+  border-radius: 8px;
+  color: var(--preview-ink);
   display: grid;
   gap: 14px;
   min-width: 0;
+  padding: 14px;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+  --preview-grid-x: rgba(20, 22, 22, 0.07);
+  --preview-grid-y: rgba(20, 22, 22, 0.05);
+  --preview-ink: var(--ink);
+  --preview-line: rgba(158, 170, 165, 0.55);
+  --preview-surface: rgba(251, 253, 251, 0.72);
+  --preview-wash: rgba(223, 255, 85, 0.12);
 }
 
 .preview-frame {
   min-width: 0;
   width: min(100%, 1200px);
+}
+
+.preview-section[data-theme="mint"] {
+  --preview-grid-x: rgba(17, 106, 80, 0.11);
+  --preview-grid-y: rgba(17, 106, 80, 0.08);
+  --preview-ink: #10241d;
+  --preview-line: rgba(168, 205, 187, 0.95);
+  --preview-surface: rgba(230, 247, 237, 0.86);
+  --preview-wash: rgba(223, 255, 85, 0.34);
+}
+
+.preview-section[data-theme="dusk"] {
+  --preview-grid-x: rgba(226, 255, 90, 0.10);
+  --preview-grid-y: rgba(23, 167, 182, 0.14);
+  --preview-ink: #f6faf8;
+  --preview-line: rgba(69, 97, 95, 0.95);
+  --preview-surface: rgba(17, 24, 23, 0.94);
+  --preview-wash: rgba(240, 90, 63, 0.22);
 }
 
 .section-heading {
@@ -505,9 +540,9 @@ svg {
 }
 
 .section-heading span {
-  background: var(--press);
+  background: var(--preview-ink);
   border-radius: 999px;
-  color: #ffffff;
+  color: var(--preview-surface);
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 800;
