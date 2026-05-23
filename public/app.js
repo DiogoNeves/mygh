@@ -118,15 +118,19 @@ renderPreview();
 function handleUrlInput() {
   const normalizedUrl = normalizeGithubUrl(urlInput.value);
   const isNewTarget = normalizedUrl && normalizedUrl !== lastInspectedUrl;
-  if (!urlInput.value.trim() || isNewTarget) {
+  const shouldReset = !urlInput.value.trim() || isNewTarget || (!normalizedUrl && currentMetadata);
+  if (shouldReset) {
+    activeInspectId += 1;
     currentMetadata = null;
     createButton.disabled = true;
     resultEl.hidden = true;
     hasEditedDescription = false;
     hasEditedTitle = false;
-    if (!urlInput.value.trim()) {
+    if (!normalizedUrl || isNewTarget) {
       titleInput.value = "";
       descriptionInput.value = "";
+    }
+    if (!urlInput.value.trim()) {
       setStatus("");
     }
     renderPreview();
@@ -265,6 +269,26 @@ function selectedTheme() {
 
 function selectedInfoChips() {
   return new Set(infoInputs.filter((input) => input.checked).map((input) => input.value));
+}
+
+function normalizeGithubUrl(value) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(candidate);
+    const host = url.hostname.toLowerCase();
+    const parts = url.pathname.split("/").filter(Boolean);
+    if ((host !== "github.com" && host !== "www.github.com") || parts.length < 2) {
+      return "";
+    }
+    return url.href;
+  } catch {
+    return "";
+  }
 }
 
 function previewState() {
