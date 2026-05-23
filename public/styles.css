@@ -51,6 +51,10 @@ body::before {
   position: fixed;
 }
 
+body.matrix-modal-open {
+  overflow: hidden;
+}
+
 button,
 input,
 textarea {
@@ -456,8 +460,30 @@ svg {
 }
 
 .appearance legend {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
   grid-column: 1 / -1;
   margin-bottom: 2px;
+}
+
+.see-all-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.see-all-button:hover,
+.see-all-button:focus-visible {
+  color: var(--accent);
 }
 
 .chip-controls legend {
@@ -703,6 +729,157 @@ svg {
   color: #f6faf8;
 }
 
+.matrix-modal {
+  align-items: center;
+  display: grid;
+  inset: 0;
+  justify-items: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 20;
+}
+
+.matrix-scrim {
+  appearance: none;
+  background: rgba(20, 22, 22, 0.52);
+  border: 0;
+  cursor: default;
+  inset: 0;
+  padding: 0;
+  position: absolute;
+}
+
+.matrix-modal-panel {
+  background:
+    linear-gradient(120deg, rgba(251, 253, 251, 0.96) 0 31%, rgba(223, 255, 85, 0.18) 31% 36%, transparent 36%),
+    repeating-linear-gradient(0deg, rgba(20, 22, 22, 0.06) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(90deg, rgba(20, 22, 22, 0.05) 0 1px, transparent 1px 56px),
+    var(--surface);
+  border: 1px solid rgba(158, 170, 165, 0.8);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: min(92vh, 1040px);
+  overflow: hidden;
+  position: relative;
+  width: min(96vw, 1500px);
+}
+
+.matrix-modal-header {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  min-height: 60px;
+  padding: 14px 16px;
+}
+
+.matrix-modal-header h2 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1;
+  margin: 0;
+}
+
+.icon-button {
+  align-items: center;
+  background: var(--press);
+  border: 1px solid var(--press);
+  border-radius: 8px;
+  color: #ffffff;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  padding: 0;
+  transition: background 160ms ease, transform 160ms ease;
+  width: 40px;
+}
+
+.icon-button:hover {
+  background: var(--accent);
+  transform: translateY(-1px);
+}
+
+.icon-button svg {
+  height: 20px;
+  width: 20px;
+}
+
+.matrix-modal-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.matrix-grid {
+  display: grid;
+  gap: 16px;
+  min-width: 1320px;
+}
+
+.matrix-row {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 170px repeat(3, minmax(320px, 1fr));
+}
+
+.matrix-header {
+  align-items: center;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.row-label {
+  border-top: 1px solid var(--line);
+  min-height: 100%;
+  padding-top: 12px;
+}
+
+.row-label span {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.row-label code {
+  color: var(--muted);
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+
+.matrix-cell {
+  margin: 0;
+}
+
+.matrix-cell canvas {
+  aspect-ratio: 1200 / 630;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 8px 8px 0 rgba(20, 22, 22, 0.12);
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.matrix-cell figcaption {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 750;
+  margin-top: 8px;
+}
+
 .result {
   border-top: 1px solid var(--line);
   display: grid;
@@ -866,6 +1043,68 @@ a:focus-visible,
 
   .storage-note {
     white-space: normal;
+  }
+
+  .matrix-modal {
+    align-items: stretch;
+    justify-items: stretch;
+    padding: 0;
+  }
+
+  .matrix-modal-panel {
+    border: 0;
+    border-radius: 0;
+    max-height: none;
+    min-height: 100vh;
+    width: 100vw;
+  }
+
+  .matrix-modal-header {
+    background: rgba(251, 253, 251, 0.94);
+    min-height: 58px;
+    padding: 12px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .matrix-modal-header h2 {
+    font-size: 24px;
+  }
+
+  .matrix-modal-body {
+    padding: 14px;
+  }
+
+  .matrix-grid {
+    gap: 22px;
+    min-width: 0;
+  }
+
+  .matrix-header {
+    display: none;
+  }
+
+  .matrix-row {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row-label {
+    background: rgba(251, 253, 251, 0.72);
+    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    margin: 8px 0 2px;
+    padding: 12px 0;
+  }
+
+  .row-label span {
+    font-size: 24px;
+  }
+
+  .matrix-cell canvas {
+    box-shadow: 5px 5px 0 rgba(20, 22, 22, 0.10);
   }
 }
 

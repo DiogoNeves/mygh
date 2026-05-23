@@ -15,6 +15,12 @@ mygh accepts public GitHub URLs for:
 - Pull requests: `https://github.com/owner/repo/pull/123`
 - Issues: `https://github.com/owner/repo/issues/123`
 
+## Preview matrix
+
+The local development preview matrix shows every supported link type across the Paper, Mint, and Dusk styles.
+
+![mygh preview image matrix](docs/preview-matrix.jpg)
+
 ## Core flow
 
 ```text
@@ -178,9 +184,3 @@ Then visit `http://localhost:8788/dev/preview-matrix`. It shows one supported Gi
 - Social preview and Open Graph experiments
 - GitHub release announcement tooling
 - Browser-generated images that are stored and served from the edge
-
-## Preview matrix
-
-The local development preview matrix shows every supported link type across the Paper, Mint, and Dusk styles.
-
-![mygh preview image matrix](docs/preview-matrix.jpg)

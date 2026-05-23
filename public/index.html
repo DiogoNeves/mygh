@@ -85,7 +85,10 @@
               <textarea id="card-description" maxlength="220" rows="4" placeholder="Repository, file, issue, PR, or commit summary"></textarea>
 
               <fieldset class="appearance">
-                <legend>Appearance</legend>
+                <legend>
+                  <span>Appearance</span>
+                  <button class="see-all-button" id="open-preview-matrix" type="button">see all</button>
+                </legend>
                 <label class="theme-choice">
                   <input type="radio" name="theme" value="paper" checked>
                   <span>
@@ -185,6 +188,35 @@
         </footer>
       </section>
     </main>
+
+    <section
+      class="matrix-modal"
+      id="preview-matrix-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="preview-matrix-title"
+      hidden
+    >
+      <button
+        class="matrix-scrim"
+        id="close-preview-matrix-scrim"
+        type="button"
+        aria-label="Close preview matrix"
+      ></button>
+      <div class="matrix-modal-panel">
+        <header class="matrix-modal-header">
+          <h2 id="preview-matrix-title">Preview matrix</h2>
+          <button class="icon-button" id="close-preview-matrix" type="button" aria-label="Close preview matrix">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18"></path>
+            </svg>
+          </button>
+        </header>
+        <div class="matrix-modal-body">
+          <div class="matrix-grid" id="preview-matrix" data-preview-matrix></div>
+        </div>
+      </div>
+    </section>
 
     <script src="/app.js" type="module"></script>
   </body>

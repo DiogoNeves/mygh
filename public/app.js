@@ -4,6 +4,7 @@ import {
   fallbackMetadata,
   themes,
 } from "./preview-card.js";
+import { renderPreviewMatrix } from "./preview-matrix.js";
 
 const form = document.querySelector("#inspect-form");
 const urlInput = document.querySelector("#github-url");
@@ -16,6 +17,11 @@ const statusEl = document.querySelector("#status");
 const resultEl = document.querySelector("#result");
 const shareUrlInput = document.querySelector("#share-url");
 const copyButton = document.querySelector("#copy-link");
+const openMatrixButton = document.querySelector("#open-preview-matrix");
+const closeMatrixButton = document.querySelector("#close-preview-matrix");
+const closeMatrixScrim = document.querySelector("#close-preview-matrix-scrim");
+const matrixModal = document.querySelector("#preview-matrix-modal");
+const matrix = document.querySelector("#preview-matrix");
 
 const previewCard = document.querySelector("#preview-card");
 const previewContext = previewCard.getContext("2d");
@@ -27,6 +33,8 @@ let hasEditedTitle = false;
 let inspectTimer = 0;
 let isApplyingMetadata = false;
 let lastInspectedUrl = "";
+let hasRenderedMatrix = false;
+let matrixReturnFocus = null;
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -65,6 +73,15 @@ copyButton.addEventListener("click", async () => {
   if (!shareUrlInput.value) return;
   await navigator.clipboard.writeText(shareUrlInput.value);
   setStatus("Copied.");
+});
+
+openMatrixButton.addEventListener("click", openPreviewMatrix);
+closeMatrixButton.addEventListener("click", closePreviewMatrix);
+closeMatrixScrim.addEventListener("click", closePreviewMatrix);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !matrixModal.hidden) {
+    closePreviewMatrix();
+  }
 });
 
 renderPreview();
@@ -269,6 +286,31 @@ function previewState() {
 function renderCanvas() {
   renderPreview();
   return previewCard.toDataURL("image/png");
+}
+
+function openPreviewMatrix() {
+  if (!hasRenderedMatrix) {
+    renderPreviewMatrix(matrix);
+    hasRenderedMatrix = true;
+  }
+
+  matrixReturnFocus = document.activeElement;
+  matrixModal.hidden = false;
+  document.body.classList.add("matrix-modal-open");
+  closeMatrixButton.focus();
+}
+
+function closePreviewMatrix() {
+  if (matrixModal.hidden) {
+    return;
+  }
+
+  matrixModal.hidden = true;
+  document.body.classList.remove("matrix-modal-open");
+
+  if (matrixReturnFocus && document.contains(matrixReturnFocus)) {
+    matrixReturnFocus.focus();
+  }
 }
 
 function setStatus(message) {

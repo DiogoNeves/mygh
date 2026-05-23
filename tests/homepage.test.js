@@ -35,3 +35,31 @@ test("homepage social preview image is a 1200 by 630 PNG", async () => {
   assert.equal(image.readUInt32BE(16), 1200);
   assert.equal(image.readUInt32BE(20), 630);
 });
+
+test("homepage exposes the preview matrix modal", async () => {
+  const [html, appScript, styles] = await Promise.all([
+    readFile("public/index.html", "utf8"),
+    readFile("public/app.js", "utf8"),
+    readFile("public/styles.css", "utf8"),
+  ]);
+
+  assert.match(html, /id="open-preview-matrix"/);
+  assert.match(html, /class="see-all-button"/);
+  assert.match(html, /id="preview-matrix-modal"/);
+  assert.match(html, /role="dialog"/);
+  assert.match(html, /data-preview-matrix/);
+  assert.match(appScript, /from "\.\/preview-matrix\.js"/);
+  assert.match(appScript, /renderPreviewMatrix\(matrix\)/);
+  assert.match(styles, /@media \(max-width: 720px\)/);
+  assert.match(styles, /\.matrix-modal-panel \{[\s\S]*?min-height: 100vh;/);
+  assert.match(styles, /\.matrix-row \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);/);
+});
+
+test("preview matrix data covers every supported link type", async () => {
+  const { matrixSamples } = await import("../public/preview-matrix.js");
+
+  assert.deepEqual(
+    matrixSamples.map((sample) => sample.type),
+    ["repo", "release", "file", "commit", "pull", "issue"],
+  );
+});
